@@ -16,7 +16,7 @@ private:
     VectorXd eta;  // current linear predictor
     int n, p;
     int max_iterations;
-    double rel_tolerance; // glm.control(epsilon)
+    double rel_tolerance; // epsilon
 
     // Stable logistic with clipping
     static inline double plogis_clip(double t)
@@ -43,15 +43,37 @@ private:
         }
     }
 
-    // Deviance from a given eta (binomial 0/1)
+    // Deviance from a given eta (binomial 0/1) - matches R's calculation
     double deviance_from_eta(const VectorXd &eta_in) const
     {
         double dev = 0.0;
         for (int i = 0; i < n; ++i)
         {
             double mu = plogis_clip(eta_in(i));
-            dev += (y(i) == 1.0) ? -2.0 * std::log(mu)
-                                 : -2.0 * std::log(1.0 - mu);
+
+            // R's binomial deviance calculation
+            if (y(i) == 1.0)
+            {
+                if (mu > DBL_EPSILON)
+                {
+                    dev += -2.0 * std::log(mu);
+                }
+                else
+                {
+                    dev += 1e10; // Large penalty for mu near 0 when y=1
+                }
+            }
+            else
+            {
+                if ((1.0 - mu) > DBL_EPSILON)
+                {
+                    dev += -2.0 * std::log(1.0 - mu);
+                }
+                else
+                {
+                    dev += 1e10; // Large penalty for mu near 1 when y=0
+                }
+            }
         }
         return dev;
     }
@@ -153,25 +175,89 @@ public:
     }
 
     VectorXd getCoefficients() const { return beta; }
+
+    // Predict probabilities for new data
+    VectorXd predict_proba(const MatrixXd &X_new) const
+    {
+        VectorXd eta_new = X_new * beta;
+        VectorXd probs(eta_new.size());
+        for (int i = 0; i < eta_new.size(); ++i)
+        {
+            probs(i) = plogis_clip(eta_new(i));
+        }
+        return probs;
+    }
+
+    // Predict binary classifications (0/1) using 0.5 threshold
+    VectorXi predict(const MatrixXd &X_new) const
+    {
+        VectorXd probs = predict_proba(X_new);
+        VectorXi predictions(probs.size());
+        for (int i = 0; i < probs.size(); ++i)
+        {
+            predictions(i) = (probs(i) >= 0.5) ? 1 : 0;
+        }
+        return predictions;
+    }
+
+    // Get fitted probabilities for training data
+    VectorXd get_fitted_values() const
+    {
+        return predict_proba(X);
+    }
+
+    // Get current deviance
+    double get_deviance() const
+    {
+        return deviance_from_eta(eta);
+    }
 };
 
 int main()
 {
-    MatrixXd X(5, 2);
-    X << 1, 1,
-        1, 2,
-        1, 3,
-        1, 4,
-        1, 5;
+    MatrixXd X(8, 3); // intercept + 2 predictors
+    X << 1, 180, 80,  // intercept, chol, bp
+        1, 200, 90,
+        1, 220, 85,
+        1, 240, 95,
+        1, 250, 100,
+        1, 180, 75,
+        1, 300, 120,
+        1, 320, 130;
 
-    VectorXd y(5);
-    y << 0, 0, 1, 1, 1;
+    VectorXd y(8);
+    y << 0, 0, 0, 1, 1, 0, 1, 1; // binary outcomes
 
     LogisticRegression model(X, y);
     model.fit();
 
+    cout << "=== C++ LogisticRegression Results ===\n";
+    cout << fixed << setprecision(6);
+
+    // Test 1: Coefficients
     VectorXd coeffs = model.getCoefficients();
-    cout << "Coefficients:\n";
-    cout << fixed << setprecision(6) << coeffs.transpose() << "\n";
+    cout << "Coefficients: " << coeffs.transpose() << "\n";
+
+    // Test 2: Fitted probabilities
+    VectorXd fitted_probs = model.get_fitted_values();
+    cout << "Fitted probabilities: " << fitted_probs.transpose() << "\n";
+
+    // Test 3: Binary predictions
+    VectorXi predictions = model.predict(X);
+    cout << "Binary predictions: " << predictions.transpose() << "\n";
+
+    // Test 4: Deviance
+    double deviance = model.get_deviance();
+    cout << "Deviance: " << scientific << setprecision(6) << deviance << "\n";
+
+    // Test 5: Predictions on new data
+    MatrixXd X_new(3, 3);
+    X_new << 1, 190, 85, 1, 280, 110, 1, 160, 70;
+
+    VectorXd new_probs = model.predict_proba(X_new);
+    VectorXi new_preds = model.predict(X_new);
+    cout << fixed << setprecision(6);
+    cout << "New data probabilities: " << new_probs.transpose() << "\n";
+    cout << "New data predictions: " << new_preds.transpose() << "\n";
     return 0;
 }
