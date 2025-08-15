@@ -12,7 +12,8 @@ using namespace std;
 BestSubsetSelector::BestSubsetSelector(const MatrixXd &X_input, const VectorXd &y_input)
     : X(X_input), y(y_input), include_intercept(true), max_variables(-1),
       top_n_models(10), metric("accuracy"), convergence_tolerance(1e-6),
-      max_iterations(100), is_fitted(false)
+      max_iterations(100), use_cross_validation(false), cv_folds(5),
+      cv_repeats(3), cv_seed(-1), is_fitted(false)
 {
     if (X.rows() != y.rows())
     {
@@ -49,7 +50,7 @@ std::vector<std::vector<int>> BestSubsetSelector::generateVariableSubsets(int ma
     int total_vars = n_variables;
     int max_subset_size = std::min(max_size, total_vars);
 
-    // Generate all possible combinations using bit manipulation
+    // Generate all possible combinations
     // Start from 1 (skip empty set) to 2^n_variables - 1
     for (int i = 1; i < (1 << total_vars); ++i)
     {
@@ -131,6 +132,13 @@ void BestSubsetSelector::fit(int max_vars, int top_n, const std::string &selecti
     max_variables = max_vars;
     top_n_models = top_n;
     metric = selection_metric;
+
+    // Use cross-validation if enabled
+    if (use_cross_validation)
+    {
+        fitWithCrossValidation(max_variables);
+        return;
+    }
 
     // Generate all variable subsets
     std::vector<std::vector<int>> subsets = generateVariableSubsets(max_variables);
@@ -374,4 +382,121 @@ VectorXi BestSubsetSelector::predict(const MatrixXd &X_new) const
     }
 
     return best.predict(X_subset);
+}
+
+// Cross-validation configuration methods
+void BestSubsetSelector::setCrossValidation(bool use_cv, int folds, int repeats, int seed)
+{
+    use_cross_validation = use_cv;
+    cv_folds = folds;
+    cv_repeats = repeats;
+    cv_seed = seed;
+}
+
+bool BestSubsetSelector::isUsingCrossValidation() const
+{
+    return use_cross_validation;
+}
+
+int BestSubsetSelector::getCVFolds() const
+{
+    return cv_folds;
+}
+
+int BestSubsetSelector::getCVRepeats() const
+{
+    return cv_repeats;
+}
+
+int BestSubsetSelector::getCVSeed() const
+{
+    return cv_seed;
+}
+
+// Cross-validation enabled fit method
+void BestSubsetSelector::fitWithCrossValidation(int max_vars)
+{
+    std::vector<std::vector<int>> subsets = generateVariableSubsets(max_vars);
+
+    all_results.clear();
+
+    for (const auto &subset : subsets)
+    {
+        if (subset.empty())
+            continue;
+
+        try
+        {
+            // Calculate CV performance
+            double cv_performance;
+
+            if (cv_repeats > 1)
+            {
+                cv_performance = PerformanceEvaluator::calculateRepeatedKFold(
+                    X, y, subset, metric, include_intercept, cv_folds, cv_repeats, cv_seed);
+            }
+            else
+            {
+                cv_performance = PerformanceEvaluator::calculateKFold(
+                    X, y, subset, metric, include_intercept, cv_folds, cv_seed);
+            }
+
+            // Extract subset matrix for final model fitting
+            MatrixXd X_subset = extractSubsetMatrix(subset);
+
+            // Fit final model on full data for storage and prediction
+            LogisticRegression lr(X_subset, y, max_iterations, convergence_tolerance);
+            lr.fit();
+
+            Model model;
+            std::vector<int> indices_for_model = include_intercept ? addInterceptColumn(subset) : subset;
+            model.fitFromLogisticRegression(lr, indices_for_model);
+
+            // Calculate final model metrics (only computed once per subset)
+            VectorXd fitted_probs = lr.get_fitted_values();
+            VectorXi predictions = lr.predict(X_subset);
+
+            double final_accuracy = 0.0, final_auc = 0.0; // Initialize to avoid warnings
+
+            if (metric == "accuracy")
+            {
+                // Use CV accuracy for ranking, calculate AUC only once on final model
+                final_accuracy = cv_performance;                                 // CV accuracy for ranking
+                final_auc = PerformanceEvaluator::calculateAUC(fitted_probs, y); // Final model AUC
+            }
+            else if (metric == "auc")
+            {
+                // Use CV AUC for ranking, calculate accuracy only once on final model
+                final_accuracy = PerformanceEvaluator::calculateAccuracy(predictions, y); // Final model accuracy
+                final_auc = cv_performance;                                               // CV AUC for ranking
+            }
+            else
+            {
+                throw std::invalid_argument("Unsupported metric: " + metric);
+            }
+
+            // Create SubsetResult
+            SubsetResult result(model, final_accuracy, final_auc);
+            all_results.push_back(result);
+        }
+        catch (const std::exception &e)
+        {
+            // Skip failed subsets
+            continue;
+        }
+    }
+
+    // Sort results by selected metric
+    sortResultsByMetric();
+
+    // Keep top N results
+    best_results.clear();
+    int n_to_keep = std::min(top_n_models, static_cast<int>(all_results.size()));
+
+    for (int i = 0; i < n_to_keep; ++i)
+    {
+        best_results.push_back(all_results[i]);
+    }
+
+    is_fitted = true;
 }
