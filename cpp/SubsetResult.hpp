@@ -18,14 +18,11 @@ private:
     bool is_valid;
 
 public:
-    // Constructors
     SubsetResult();
     SubsetResult(const Model &fitted_model, double acc, double auc_score);
 
-    // Create from fitted model + performance metrics
     void setResult(const Model &fitted_model, double acc, double auc_score);
 
-    // Getters
     Model getModel() const;
     double getAccuracy() const;
     double getAUC() const;
@@ -34,18 +31,14 @@ public:
     int getNumVariables() const;
     bool isValid() const;
 
-    // Performance score (can be accuracy, AUC, or custom combination)
-    double getScore() const;                          // Returns accuracy by default
-    double getScore(const std::string &metric) const; // "accuracy", "auc", "deviance"
+    double getScore() const;
+    double getScore(const std::string &metric) const;
 
-    // Comparison operators for ranking
-    bool operator<(const SubsetResult &other) const; // Less than (by accuracy)
-    bool operator>(const SubsetResult &other) const; // Greater than (by accuracy)
+    bool operator<(const SubsetResult &other) const;
+    bool operator>(const SubsetResult &other) const;
 
-    // Comparison by specific metric
     bool isBetterThan(const SubsetResult &other, const std::string &metric) const;
 
-    // Prediction methods (delegates to Model)
     VectorXd predict_proba(const MatrixXd &X) const;
     VectorXi predict(const MatrixXd &X) const;
 };

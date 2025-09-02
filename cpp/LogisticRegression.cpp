@@ -6,7 +6,6 @@
 
 using namespace std;
 
-// Static helper function
 double LogisticRegression::plogis_clip(double t)
 {
     if (t >= 0)
@@ -31,7 +30,6 @@ double LogisticRegression::plogis_clip(double t)
     }
 }
 
-// Deviance calculation
 double LogisticRegression::deviance_from_eta(const VectorXd &eta_in) const
 {
     double dev = 0.0;
@@ -39,7 +37,6 @@ double LogisticRegression::deviance_from_eta(const VectorXd &eta_in) const
     {
         double mu = plogis_clip(eta_in(i));
 
-        // R's binomial deviance calculation
         if (y(i) == 1.0)
         {
             if (mu > DBL_EPSILON)
@@ -48,7 +45,7 @@ double LogisticRegression::deviance_from_eta(const VectorXd &eta_in) const
             }
             else
             {
-                dev += 1e10; // Large penalty for mu near 0 when y=1
+                dev += 1e10;
             }
         }
         else
@@ -59,23 +56,22 @@ double LogisticRegression::deviance_from_eta(const VectorXd &eta_in) const
             }
             else
             {
-                dev += 1e10; // Large penalty for mu near 1 when y=0
+                dev += 1e10;
             }
         }
     }
     return dev;
 }
 
-// IRLS proposal
 VectorXd LogisticRegression::irls_proposal_beta_from_eta(const VectorXd &eta_curr) const
 {
     VectorXd sw(n), z(n);
     for (int i = 0; i < n; ++i)
     {
         double mu = plogis_clip(eta_curr(i));
-        double dmu = mu * (1.0 - mu);           // d_mu/d_eta for logit
-        sw(i) = std::sqrt(dmu);                 // sqrt(W) with W = mu(1-mu)
-        z(i) = eta_curr(i) + (y(i) - mu) / dmu; // working response
+        double dmu = mu * (1.0 - mu);
+        sw(i) = std::sqrt(dmu);
+        z(i) = eta_curr(i) + (y(i) - mu) / dmu;
     }
 
     MatrixXd Xw = X;
