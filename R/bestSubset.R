@@ -24,27 +24,16 @@
 #' }
 #'
 #' @examples
-#' \dontrun{
-#' # Generate sample data
+#' # Generate sample data (small for fast execution)
 #' set.seed(123)
-#' n <- 100
-#' X <- matrix(rnorm(n*4), nrow=n, ncol=4)
-#' colnames(X) <- paste0("X", 1:4)
-#' y <- rbinom(n, 1, plogis(X[,1] + 0.5*X[,2] - 0.3*X[,3]))
+#' X <- matrix(rnorm(20*3), nrow=20, ncol=3)
+#' colnames(X) <- paste0("X", 1:3)
+#' y <- rbinom(20, 1, plogis(X[,1] + 0.5*X[,2]))
 #'
 #' # Basic best subset selection
-#' result <- bestSubset(X, y, max_variables=3, top_n=5)
+#' result <- bestSubset(X, y, max_variables=2, top_n=3)
 #' print(result)
 #' summary(result)
-#'
-#' # With cross-validation
-#' result_cv <- bestSubset(X, y, cross_validation=TRUE, cv_folds=5, metric="auc")
-#' print(result_cv)
-#'
-#' # Make predictions
-#' predictions <- predict(result, X)
-#' probabilities <- predict(result, X, type="prob")
-#' }
 #'
 #' @export
 bestSubset <- function(X, y, 
@@ -59,37 +48,29 @@ bestSubset <- function(X, y,
   
   call <- match.call()
   
-  # Set fixed internal parameters
   include_intercept <- TRUE
   max_iterations <- 100
   tolerance <- 1e-6
   
-  # Input validation
   X <- validate_input_matrix(X, "X")
   validate_dimensions(X, y)
   
-  # Handle missing values
   na_result <- handle_missing_values(X, y, na.action)
   X_clean <- na_result$X_clean
   y_clean <- na_result$y_clean
   
   metric <- match.arg(metric)
   
-  # Parameter validation
   validated_params <- validate_parameters(max_variables, top_n, metric,
                                         cross_validation, cv_folds, cv_repeats,
                                         ncol(X_clean), nrow(X_clean))
   
-  # Essential data validation
   validate_data_requirements(X_clean, y_clean)
   
-  # Perfect separation detection
   detect_perfect_separation(X_clean, y_clean)
   
-  # Computational complexity warning
   warn_computational_complexity(ncol(X_clean), validated_params$max_variables)
   
-  # Use validated parameters
   max_variables <- validated_params$max_variables
   top_n <- validated_params$top_n
   metric <- validated_params$metric
@@ -120,7 +101,6 @@ bestSubset <- function(X, y,
     tolerance = tolerance
   )
   
-  # Add missing value information to result
   result$na_info <- list(
     na_action_used = na_result$na_action_used,
     original_n = na_result$original_n,
@@ -129,7 +109,6 @@ bestSubset <- function(X, y,
     na_map = na_result$na_map
   )
   
-  # Update call info with missing value information
   result$call_info$n_observations_original <- na_result$original_n
   result$call_info$n_observations <- na_result$effective_n
   result$call_info$n_removed <- na_result$original_n - na_result$effective_n
