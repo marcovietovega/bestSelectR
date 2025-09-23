@@ -12,44 +12,7 @@
 using namespace Rcpp;
 using namespace Eigen;
 
-//' Best Subset Selection for Logistic Regression
-//'
-//' Performs best subset selection for logistic regression
-//' or cross-validation to find the optimal subset of predictors.
-//'
-//' @param X_r Numeric matrix of predictors (n x p)
-//' @param y_r Numeric vector of binary outcomes (0/1)
-//' @param max_variables Maximum number of variables to consider (default: all)
-//' @param top_n Number of top models to return (default: 10)
-//' @param metric Selection metric: "accuracy", "auc", or "deviance" (default: "accuracy")
-//' @param use_cv Whether to use cross-validation (default: FALSE)
-//' @param cv_folds Number of CV folds (default: 5)
-//' @param cv_repeats Number of CV repeats (default: 1)
-//' @param cv_seed Random seed for CV (default: -1, no seed)
-//' @param include_intercept Whether to include intercept (default: TRUE)
-//' @param max_iterations Maximum iterations for logistic regression (default: 100)
-//' @param tolerance Convergence tolerance (default: 1e-6)
-//'
-//' @return List containing:
-//' \itemize{
-//'   \item models - Data frame with model results
-//'   \item best_model - Information about the best model
-//'   \item call_info - Information about the function call
-//' }
-//'
-//' @examples
-//' \dontrun{
-//' # Simple example
-//' X <- matrix(rnorm(100*3), ncol=3)
-//' y <- rbinom(100, 1, 0.5)
-//' result <- best_subset_selection(X, y, max_variables=2, top_n=5)
-//' print(result$best_model)
-//'
-//' # With cross-validation
-//' result_cv <- best_subset_selection(X, y, use_cv=TRUE, cv_folds=5)
-//' }
-//'
-//' @export
+// C++ function for best subset selection
 // [[Rcpp::export]]
 List best_subset_selection(
     NumericMatrix X_r,
@@ -219,17 +182,7 @@ List best_subset_selection(
     }
 }
 
-//' Predict using Best Subset Selection Model
-//'
-//' Make predictions using a fitted best subset selection model.
-//'
-//' @param model_info List containing model information from best_subset_selection
-//' @param X_new Numeric matrix of new predictors
-//' @param type Type of prediction: "class" for binary predictions, "prob" for probabilities
-//'
-//' @return Numeric vector of predictions
-//'
-//' @export
+// C++ function for predictions
 // [[Rcpp::export]]
 NumericVector predict_best_subset(
     List model_info,
