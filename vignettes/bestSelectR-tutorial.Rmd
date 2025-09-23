@@ -1,0 +1,171 @@
+---
+title: "Introduction to bestSelectR"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Introduction to bestSelectR}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(bestSelectR)
+```
+
+## Introduction
+
+The bestSelectR package helps you find the best variables for logistic regression. When you have many variables and want to predict a binary outcome (like yes/no, success/failure), this package tests all possible combinations of variables. It then ranks them by how well they perform.
+
+This is useful when you don't know which variables are important. Instead of guessing, the package tests every combination and shows you the best ones. It also uses cross-validation to make sure the results are reliable.
+
+## Installation
+
+You can install bestSelectR directly from GitHub:
+
+```{r eval=FALSE}
+devtools::install_github("marcovietovega/bestSelectR")
+```
+
+You'll need `devtools` for installation. All other dependencies will be installed automatically.
+
+## Requirements
+
+- R version 3.5 or higher
+- C++ compiler (for installation)
+- `devtools` package (for GitHub installation)
+
+## Basic Example
+
+Here's a simple example to get you started:
+
+```{r basic-example}
+# Create sample data
+set.seed(123)
+X <- matrix(rnorm(50*4), nrow=50, ncol=4)
+colnames(X) <- paste0("X", 1:4)
+y <- rbinom(50, 1, plogis(X[,1] + 0.5*X[,2] - 0.3*X[,3]))
+
+# Find best variable combinations
+result <- bestSubset(X, y, max_variables=3, top_n=5)
+
+# See the results
+print(result)
+```
+
+The output shows you the best models found. Each model uses different combinations of variables.
+
+## Example with Cross-Validation
+
+Cross-validation gives you more reliable results:
+
+```{r cv-example}
+# Use cross-validation for more reliable results
+result_cv <- bestSubset(X, y,
+                        max_variables=3,
+                        cross_validation=TRUE,
+                        cv_folds=5,
+                        metric="auc")
+
+# View results
+print(result_cv)
+```
+
+Cross-validation tests your model on different parts of the data. This helps make sure the results work well on new data.
+
+## Example with Missing Data
+
+The package can handle missing data in different ways:
+
+```{r missing-data-example}
+# Create data with some missing values
+X_missing <- X
+X_missing[sample(length(X_missing), 20)] <- NA  # Add 20 missing values randomly
+
+# Option 1: Remove cases with missing data
+result_omit <- bestSubset(X_missing, y, na.action=na.omit)
+print(result_omit)
+```
+
+When you have missing data, the package can:
+- Stop and tell you (default behavior)
+- Remove cases with missing data
+- Remove cases but keep track of positions
+
+## Function Parameters
+
+The main function is `bestSubset()`. Here's what you can control:
+
+```{r eval=FALSE}
+bestSubset(X, y, max_variables = NULL, top_n = 5, metric = "auc",
+           cross_validation = FALSE, cv_folds = 5, cv_repeats = 1,
+           cv_seed = NULL, na.action = na.fail)
+```
+
+**What you need to provide:**
+- `X`: Your variables (matrix or data frame)
+- `y`: Your outcome (must be 0 and 1 only)
+
+**What you can change:**
+- `max_variables`: Limit how many variables to use (default: use all)
+- `top_n`: How many best models to show (default: 5, max: 10)
+- `metric`: How to pick best models - "auc" or "accuracy" (default: "auc")
+- `cross_validation`: Use cross-validation? TRUE or FALSE (default: FALSE)
+- `cv_folds`: How many groups for cross-validation (default: 5)
+- `cv_repeats`: How many times to repeat cross-validation (default: 1)
+- `cv_seed`: Random number seed (default: none)
+- `na.action`: What to do with missing data (default: stop and tell you)
+
+## Understanding the Results
+
+When you run `bestSubset()`, you get an object with useful information:
+
+```{r understanding-results}
+# Get detailed results
+summary(result)
+```
+
+The `summary()` shows you:
+- Top models ranked by performance
+- Which variables each model uses
+- Performance scores (accuracy, AUC)
+- How many observations were used
+
+You can also extract specific information:
+
+```{r extract-info}
+# Get just the coefficients from the best model
+coef(result)
+
+# Make predictions on new data
+new_data <- matrix(rnorm(20), nrow=5, ncol=4)
+predictions <- predict(result, new_data, type="prob")
+print(predictions)
+```
+
+## What the Performance Metrics Mean
+
+- **Accuracy**: Percentage of correct predictions (higher is better)
+- **AUC**: Area Under Curve - measures how well the model separates the two classes
+  - 0.5 = random guessing
+  - 1.0 = perfect prediction
+  - Usually AUC > 0.7 is considered good
+- **Deviance**: A technical measure (lower is better)
+
+## Tips for Using bestSelectR
+
+1. **Start small**: If you have many variables, use `max_variables` to limit the search
+2. **Use cross-validation**: It gives more reliable results but takes longer
+3. **Check your data**: Make sure `y` contains only 0 and 1
+4. **Missing data**: Clean your data first, or use `na.action=na.omit`
+
+## Session Information
+
+```{r sessioninfo}
+sessionInfo()
+```

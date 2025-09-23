@@ -15,3 +15,7 @@ Imports:
     Rcpp,
     stats
 SystemRequirements: C++17
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
