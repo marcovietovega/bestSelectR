@@ -1,7 +1,7 @@
 #' @export
 print.bestSubset <- function(x, ...) {
-    cat("Best Subset Selection for Logistic Regression\n")
-    cat("=============================================\n\n")
+    cat("Best Subset Selection Results\n")
+    cat("============================\n\n")
     
     info <- x$call_info
     cat("Data Information:\n")
@@ -38,9 +38,6 @@ print.bestSubset <- function(x, ...) {
 
 #' @export
 summary.bestSubset <- function(object, ...) {
-    cat("Best Subset Selection Results\n")
-    cat("============================\n\n")
-    
     print(object)
     
     cat("\nTop Models:\n")
