@@ -1,0 +1,17 @@
+Package: bestSelectR
+Title: Best Subset Selection for Logistic Regression
+Version: 0.0.0.9000
+Authors@R: 
+    person("Marco", "Vieto", , "vietomarc@myvuw.ac.nz", role = c("aut", "cre"))
+Description: This package helps find the best combination of variables for predicting binary outcomes using logistic regression. It automatically tests all possible combinations of your predictor variables and ranks them by accuracy or AUC. The package includes cross-validation to ensure reliable results.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+LinkingTo: 
+    Rcpp,
+    RcppEigen
+Imports: 
+    Rcpp,
+    stats
+SystemRequirements: C++17

@@ -174,7 +174,7 @@ warn_computational_complexity <- function(n_predictors, max_variables_used) {
         } else {
             warning(paste0("Very large search space (2^", actual_p, " - 1 = ", 
                           format(total_models, big.mark = ",", scientific = TRUE), 
-                          " models). Strongly consider max_variables  <= 15."), 
+                          " models). Strongly consider max_variables <= 15."), 
                    call. = FALSE)
         }
     }
