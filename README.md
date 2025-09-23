@@ -1,13 +1,30 @@
 # Best Subset Selection for Logistic Regression
 
-This package helps you find the best combination of variables for predicting binary outcomes with logistic regression. It automatically tests every possible combination of predictor variables and ranks them by accuracy or AUC. It also uses cross validation to make sure the results are reliable.
+**bestSelectR** helps you find the best subset of predictor variables for logistic regression models, especially when your outcome is binary (e.g., 0 or 1). It works by checking all possible combinations of your variables and ranks them based on how well they predict the outcome.
+
+This is useful when you're not sure which variables are most important. Instead of using stepwise selection or picking variables manually, **bestSelectR** tests every subset and finds the combinations that perform best. It also includes cross-validation to help avoid overfitting and give more reliable performance estimates.
+
+## Table of Contents
+
+- [Installation](#installation)
+- [Test Functions](#test-functions)
+  - [Basic Example (Without Cross-Validation)](#basic-example-without-cross-validation)
+  - [Example with Cross-Validation](#example-with-cross-validation)
+  - [Example with Missing Data](#example-with-missing-data)
+- [Requirements](#requirements)
+- [Function Reference](#function-reference)
+- [Output Summary](#output-summary)
+- [More Examples](#more-examples)
+- [Performance Metrics](#performance-metrics)
+- [Usage Tips](#usage-tips)
+- [Documentation](#documentation)
 
 ## Installation
 
 Install directly from GitHub:
 
 ```r
-devtools::install_github("marcovietovega/bestSelectR")
+devtools::install_github("marcovietovega/bestSelectR", build_vignettes = TRUE)
 ```
 
 You'll need `devtools` for installation. All other dependencies will be installed automatically.
@@ -33,6 +50,8 @@ print(result)
 summary(result)
 ```
 
+This example creates a dataset with 4 predictors and tests all subsets of up to 3 variables, ranking models by AUC.
+
 ### Example with Cross-Validation
 
 ```r
@@ -48,6 +67,8 @@ print(result_cv)
 summary(result_cv)
 ```
 
+Cross-validation splits the data into k folds and evaluates models on held-out data, providing more reliable performance estimates.
+
 ### Example with Missing Data
 
 ```r
@@ -55,11 +76,13 @@ summary(result_cv)
 X_missing <- X
 X_missing[sample(length(X_missing), 20)] <- NA  # Add 20 missing values randomly
 
-# Fail if any missing values are found (default)
-result_fail <- bestSubset(X_missing, y, na.action=na.fail)
+# Handle missing data with listwise deletion
+result_omit <- bestSubset(X_missing, y, na.action=na.omit)
 
-print(result_fail)
+print(result_omit)
 ```
+
+The package supports multiple missing data strategies: `na.fail` (default), `na.omit`, and `na.exclude`.
 
 ## Requirements
 
@@ -67,7 +90,7 @@ print(result_fail)
 - C++ compiler (for installation)
 - `devtools` package (for GitHub installation)
 
-## Main function: bestSubset()
+## Function Reference
 
 ```r
 bestSubset(X, y, max_variables = NULL, top_n = 5, metric = "auc",
@@ -75,23 +98,28 @@ bestSubset(X, y, max_variables = NULL, top_n = 5, metric = "auc",
            cv_seed = NULL, na.action = na.fail)
 ```
 
-**What you need to provide:**
+**Required arguments:**
 
-- `X`: Your variables (matrix or data frame)
-- `y`: Your outcome (must be 0 and 1 only)
+- `X`: A matrix or data frame of predictor variables (must be numeric)
+- `y`: A binary outcome vector (must contain only 0 and 1)
 
-**What you can change:**
+**Optional parameters:**
 
-- `max_variables`: Limit how many variables to use (default: use all)
-- `top_n`: How many best models to show (default: 5, max: 10)
-- `metric`: How to pick best models - "auc" or "accuracy" (default: "auc")
-- `cross_validation`: Use cross-validation? TRUE or FALSE (default: FALSE)
-- `cv_folds`: How many groups for cross-validation (default: 5)
-- `cv_repeats`: How many times to repeat cross-validation (default: 1)
-- `cv_seed`: Random number seed (default: none)
-- `na.action`: What to do with missing data (default: stop and tell you)
+- `max_variables`: The maximum number of variables to include in a model (default: use all)
+- `top_n`: Number of top-performing models to return (default: 5, maximum allowed: 10)
+- `metric`: Metric used to rank the models. Options are:
+  - `"auc"`: Area under the ROC curve (default)
+  - `"accuracy"`: Classification accuracy
+- `cross_validation`: Set to `TRUE` to enable k-fold cross-validation (default: `FALSE`)
+- `cv_folds`: Number of folds to use if cross-validation is enabled (default: 5)
+- `cv_repeats`: Number of times to repeat cross-validation (default: 1)
+- `cv_seed`: Set a random seed for reproducibility during cross-validation (default: `NULL`)
+- `na.action`: How to handle missing values. Options:
+  - `na.fail`: stop with an error if any values are missing (default)
+  - `na.omit`: drop rows with missing values
+  - `na.exclude`: drop rows, but keep row alignment for predictions
 
-## What you get back
+## Output Summary
 
 The function gives you:
 
@@ -144,19 +172,7 @@ result2 <- bestSubset(X, y, na.action = na.fail)  # Will give error
 result3 <- bestSubset(X, y, na.action = na.exclude)
 ```
 
-### Example 5: Function fixes problems automatically
-
-```r
-# Ask for too many variables - function will fix it
-result <- bestSubset(X, y, max_variables = 100)  # X only has 4 variables
-# Warning: "max_variables (100) exceeds predictors (4). Using all 4 predictors."
-
-# Ask for too many models to show - function will limit it
-result <- bestSubset(X, y, top_n = 50)
-# Warning: "top_n limited to maximum of 10 models for readable output"
-```
-
-### Example 6: Complete example with summary output
+### Example 5: Complete example with summary output
 
 ```r
 # Create sample data
@@ -189,53 +205,31 @@ predictions <- predict(result, new_data, type = "prob")
 classes <- predict(result, new_data, type = "class")
 ```
 
-## Important notes
+## Performance Metrics
 
-### Data requirements
+The package uses standard metrics to evaluate classification models:
 
-- `y` must be 0 and 1 only (not TRUE/FALSE or other values)
-- `X` must be numbers only
-- Need at least 2 observations
+- **Accuracy**: Proportion of correctly predicted cases (range: 0–1; higher is better)
+- **AUC (Area Under the ROC Curve)**: Measures how well the model distinguishes between classes
+  - AUC of 0.5 means no better than random guessing
+  - AUC of 1.0 means perfect separation
+  - AUC > 0.7 is typically considered good in practice
 
-### Speed
+## Usage Tips
 
-- Small datasets (≤ 10 variables): Very fast
-- Medium datasets (10-15 variables): Fast
-- Large datasets (> 15 variables): Slower, use `max_variables` to limit
+1. **Limit model size for speed**:
+   If your dataset has many predictors, use `max_variables` to reduce computation time.
+2. **Enable cross-validation for reliability**:
+   Use `cross_validation = TRUE` to get more stable performance estimates, especially with small datasets.
+3. **Check your response variable**:
+   The outcome `y` must be binary (only 0 and 1 values). Any other values will return an error.
+4. **Handle missing data**:
+   If your predictors contain missing values, either preprocess the data or set the `na.action` argument (e.g., `na.omit` or `na.exclude`).
 
-### Missing data
+## Documentation
 
-- Default: Stop if any missing data found (`na.fail`) - encourages data cleaning
-- Alternative: Remove missing cases (`na.omit`) - automatic cleaning
-- Advanced: Remove cases but keep positions (`na.exclude`) - for predictions
-- See warnings about how many cases removed
+For documentation see the package vignette:
 
-### Smart features
-
-- Checks your data automatically and gives helpful errors
-- Fixes small problems (like asking for too many variables) with warnings
-- Limits output to 10 best models maximum (more is not useful)
-- Warns you if computation will be slow with many variables
-
-## What the results mean
-
-### Performance metrics
-
-- **Accuracy**: Percentage of correct predictions
-- **AUC**: Area Under Curve (0.5 = random, 1.0 = perfect)
-- **Deviance**: Lower is better (technical measure)
-
-### Model selection
-
-- By default, uses AUC (better for unbalanced data)
-- Can switch to accuracy if preferred
-- Shows top models in order of performance
-
-## Getting help
-
-If something doesn't work:
-
-1. Check your data has only 0 and 1 in `y`
-2. Check for missing values
-3. Try with smaller `max_variables` if slow
-4. Read error messages - they explain the problem
+```r
+vignette("bestSelectR-tutorial", package = "bestSelectR")
+```
