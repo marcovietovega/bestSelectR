@@ -23,8 +23,6 @@ print.bestSubset <- function(x, ...) {
         cat(" (", info$cv_folds, "-fold", if(info$cv_repeats > 1) paste(",", info$cv_repeats, "repeats"), ")", sep="")
     }
     cat("\n")
-    cat("  Include intercept:", if(info$include_intercept) "Yes" else "No", "\n")
-    
     if (!is.null(x$na_info) && x$na_info$na_action_used != "none") {
         cat("  Missing values:", x$na_info$na_action_used, "\n")
     }
@@ -36,9 +34,7 @@ print.bestSubset <- function(x, ...) {
     cat("  Accuracy:", sprintf("%.4f", best$accuracy), "\n")
     cat("  AUC:", sprintf("%.4f", best$auc), "\n")
     cat("  Deviance:", sprintf("%.4f", best$deviance), "\n\n")
-    
-    cat("Use summary() for detailed results or predict() for predictions.\n")
-}
+    }
 
 #' @export
 summary.bestSubset <- function(object, ...) {
