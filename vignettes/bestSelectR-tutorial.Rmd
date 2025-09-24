@@ -208,6 +208,22 @@ result <- bestSubset(X_processed, y)
    ```
 5. **Handle missing data**:
 If your predictors contain missing values, either preprocess the data or set the `na.action` argument (e.g., `na.omit` or `na.exclude`).
+6. **Response Variable Requirements**
+The package requires the response variable to be exactly 0 and 1.
+If your response variable is in a different binary format, convert it before using `bestSubset()`:
+   ```{r eval=FALSE}
+y_factor <- factor(c("Success", "Failure", "Success", "Failure"))
+y <- as.numeric(y_factor) - 1
+
+y_logical <- c(TRUE, FALSE, TRUE, FALSE)
+y <- as.numeric(y_logical)
+
+y_original <- c(2, 1, 2, 1)
+y <- ifelse(y_original == 2, 1, 0)
+
+y_char <- c("Yes", "No", "Yes", "No")
+y <- ifelse(y_char == "Yes", 1, 0)
+   ```
 
 ## Session Information
 
