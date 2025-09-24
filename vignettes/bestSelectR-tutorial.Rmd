@@ -71,10 +71,11 @@ Cross-validation gives more reliable performance estimates by testing how models
 ```{r cv-example}
 # Run best subset selection with cross-validation
 result_cv <- bestSubset(x, y,
-                        max_variables = 3,
-                        cross_validation = TRUE,
-                        cv_folds = 5,
-                        metric = "auc")
+  max_variables = 3,
+  cross_validation = TRUE,
+  cv_folds = 5,
+  metric = "auc"
+)
 
 # Print results
 print(result_cv)
@@ -93,7 +94,7 @@ The package offers several ways to deal with missing values in your dataset.
 ```{r missing-data-example}
 # Add missing values to the data for demonstration
 x_missing <- x
-x_missing[sample(length(x_missing), 20)] <- NA  # Randomly insert 20 missing values
+x_missing[sample(length(x_missing), 20)] <- NA # Randomly insert 20 missing values
 
 # Use row deletion to handle missing data
 result_omit <- bestSubset(x_missing, y, na.action = na.omit)
@@ -118,9 +119,11 @@ By default, the function will stop and give an error if missing data is found (n
 The `bestSubset()` function gives you full control over how subsets are selected and evaluated.
 
 ```{r eval=FALSE}
-bestSubset(x, y, max_variables = NULL, top_n = 5, metric = "auc",
-           cross_validation = FALSE, cv_folds = 5, cv_repeats = 1,
-           cv_seed = NULL, na.action = na.fail)
+bestSubset(x, y,
+  max_variables = NULL, top_n = 5, metric = "auc",
+  cross_validation = FALSE, cv_folds = 5, cv_repeats = 1,
+  cv_seed = NULL, na.action = na.fail
+)
 ```
 
 **Required arguments:**
@@ -189,13 +192,21 @@ The package uses standard metrics to evaluate classification models:
 
 ## Usage Tips
 
-1. **Limit model size for speed**: 
+1. **Limit model size for speed**:
 If your dataset has many predictors, use `max_variables` to reduce computation time.
-2. **Enable cross-validation for reliability**: 
+2. **Enable cross-validation for reliability**:
 Use `cross_validation = TRUE` to get more stable performance estimates, especially with small datasets.
-3. **Check your response variable**: 
+3. **Check your response variable**:
 The outcome `y` must be binary (only 0 and 1 values). Any other values will return an error.
-4. **Handle missing data**: 
+4. **Handle categorical predictors**:
+The package requires all predictors to be numeric. If you have categorical variables, transform them to dummy variables first using `model.matrix()`.
+   ```{r eval=FALSE}
+# Convert categorical data to dummy variables
+df <- data.frame(x1 = rnorm(20), category = factor(c(rep("A", 10), rep("B", 10))))
+X_processed <- model.matrix(~ . - 1, data = df)
+result <- bestSubset(X_processed, y)
+   ```
+5. **Handle missing data**:
 If your predictors contain missing values, either preprocess the data or set the `na.action` argument (e.g., `na.omit` or `na.exclude`).
 
 ## Session Information
