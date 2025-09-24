@@ -58,14 +58,14 @@ bestSubset <- function(X, y,
   na_result <- handle_missing_values(X, y, na.action)
   X_clean <- na_result$X_clean
   y_clean <- na_result$y_clean
-  
+
+  validate_data_requirements(X_clean, y_clean)
+
   metric <- match.arg(metric)
-  
+
   validated_params <- validate_parameters(max_variables, top_n, metric,
                                         cross_validation, cv_folds, cv_repeats,
                                         ncol(X_clean), nrow(X_clean))
-  
-  validate_data_requirements(X_clean, y_clean)
   
   detect_perfect_separation(X_clean, y_clean)
   
