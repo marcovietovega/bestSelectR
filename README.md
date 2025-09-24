@@ -11,6 +11,15 @@ This is useful when you're not sure which variables are most important. Instead 
   - [Basic Example (Without Cross-Validation)](#basic-example-without-cross-validation)
   - [Example with Cross-Validation](#example-with-cross-validation)
   - [Example with Missing Data](#example-with-missing-data)
+- [Test Plan for bestSelectR](#test-plan-for-bestselectr)
+  - [1. Setup and Installation](#1-setup-and-installation)
+  - [2. Basic Functionality](#2-basic-functionality)
+  - [3. Cross-Validation Functionality](#3-cross-validation-functionality)
+  - [4. Missing Data Handling](#4-missing-data-handling)
+  - [5. Prediction Functionality](#5-prediction-functionality)
+  - [6. Error and Edge Cases](#6-error-and-edge-cases)
+  - [7. Real Dataset Example (mtcars)](#7-real-dataset-example-mtcars)
+  - [8. Report Instructions](#8-report-instructions)
 - [Requirements](#requirements)
 - [Function Reference](#function-reference)
 - [Output Summary](#output-summary)
@@ -83,6 +92,215 @@ print(result_omit)
 ```
 
 The package supports multiple missing data strategies: `na.fail` (default), `na.omit`, and `na.exclude`.
+
+## Test Plan for bestSelectR
+
+This section provides a test plan for **bestSelectR** that allows reviewers to verify the package's functionality step-by-step.
+
+### 1. Setup and Installation
+
+1. Install `devtools` if not already installed:
+
+```r
+install.packages("devtools")
+```
+
+2. Install the package from GitHub:
+
+```r
+devtools::install_github("marcovietovega/bestSelectR", build_vignettes = TRUE)
+```
+
+3. Load the package:
+
+```r
+library(bestSelectR)
+```
+
+**Expected outcome**: Package loads without errors. Vignette should be available:
+
+```r
+vignette("bestSelectR-tutorial", package = "bestSelectR")
+```
+
+### 2. Basic Functionality
+
+Test the core best subset selection functionality:
+
+```r
+# Load built-in mtcars dataset
+data(mtcars)
+
+# Use transmission (am) as binary outcome: 0=automatic, 1=manual
+X <- as.matrix(mtcars[, c("mpg", "hp", "wt", "qsec")])  # Select 4 predictors
+y <- mtcars$am
+
+# Run best subset selection
+result <- bestSubset(X, y, max_variables = 3, top_n = 5)
+
+print(result)
+summary(result)
+```
+
+**Expected outcome**:
+
+- `print(result)` shows summary information (best model information, selection settings, data information)
+- `summary(result)` displays detailed results including coefficients and top models
+- AUC values should be between 0.5 and 1.0
+
+### 3. Cross-Validation Functionality
+
+Test cross-validation for more reliable performance estimates:
+
+```r
+result_cv <- bestSubset(X, y,
+                        max_variables = 3,
+                        cross_validation = TRUE,
+                        cv_folds = 5,
+                        metric = "auc")
+
+print(result_cv)
+summary(result_cv)
+```
+
+**Expected outcome**:
+
+- Results should include CV-based performance metrics
+- Performance may differ from non-CV results
+- Should show "Cross-validation: Yes (5-fold)" in output
+
+### 4. Missing Data Handling
+
+Test different approaches to handling missing values:
+
+```r
+# Create dataset with missing values
+X_missing <- X
+set.seed(123)
+X_missing[sample(length(X_missing), 5)] <- NA
+
+# Test na.omit (removes rows with missing values)
+result_omit <- bestSubset(X_missing, y, na.action = na.omit)
+print(result_omit)
+
+# Test na.exclude (removes rows but preserves indices)
+result_exclude <- bestSubset(X_missing, y, na.action = na.exclude)
+
+# Test na.fail (should produce an error)
+try({
+  result_fail <- bestSubset(X_missing, y, na.action = na.fail)
+}, silent = TRUE)
+cat("na.fail correctly produced an error\n")
+```
+
+**Expected outcome**:
+
+- `na.omit` and `na.exclude` run successfully with reduced sample size
+- `na.fail` produces an error about missing values
+- Output should indicate number of observations removed
+
+### 5. Prediction Functionality
+
+Test prediction methods on new data:
+
+```r
+# Create new data for predictions (same structure as original)
+new_data <- matrix(c(
+  20.0, 150, 3.0, 18.0,  # Car 1
+  15.0, 300, 4.5, 16.0,  # Car 2
+  25.0, 100, 2.5, 20.0   # Car 3
+), nrow = 3, ncol = 4, byrow = TRUE)
+colnames(new_data) <- colnames(X)
+
+# Get probability predictions
+pred_prob <- predict(result, new_data, type = "prob")
+cat("Probability predictions:\n")
+print(pred_prob)
+
+# Get class predictions
+pred_class <- predict(result, new_data, type = "class")
+cat("Class predictions:\n")
+print(pred_class)
+
+# Extract coefficients
+coeffs <- coef(result)
+cat("Model coefficients:\n")
+print(coeffs)
+```
+
+**Expected outcome**:
+
+- `pred_prob` returns probabilities between 0 and 1
+- `pred_class` returns binary predictions (0 or 1)
+- `coef()` returns named coefficient vector
+
+### 6. Error and Edge Cases
+
+Test error handling for invalid inputs:
+
+```r
+# Test non-binary outcome variable
+y_invalid <- sample(1:3, nrow(mtcars), replace = TRUE)
+try({
+  bestSubset(X, y_invalid)
+}, silent = TRUE)
+cat("Non-binary y correctly produced an error\n")
+
+# Test top_n greater than maximum allowed (10)
+try({
+  bestSubset(X, y, top_n = 15)
+}, silent = TRUE)
+cat("top_n > 10 correctly produced an error\n")
+
+# Test categorical data error (create factor data)
+df_categorical <- data.frame(
+  mpg = mtcars$mpg[1:20],
+  transmission = factor(c(rep("auto", 10), rep("manual", 10)))
+)
+y_small <- mtcars$am[1:20]
+
+try({
+  bestSubset(df_categorical, y_small)
+}, silent = TRUE)
+cat("Categorical data correctly produced error\n")
+```
+
+**Expected outcome**:
+
+- Non-binary `y` produces error about binary outcomes required
+- `top_n > 10` produces error about maximum limit
+- Categorical data produces helpful error message with conversion guidance
+
+### 7. Real Dataset Example (mtcars)
+
+Test with the complete mtcars dataset to demonstrate real-world usage:
+
+```r
+# Use all numeric predictors to predict transmission type
+data(mtcars)
+X_full <- as.matrix(mtcars[, c("mpg", "cyl", "disp", "hp", "drat", "wt", "qsec", "vs", "gear", "carb")])
+y_full <- mtcars$am
+
+# Find best predictors for transmission type
+result_full <- bestSubset(X_full, y_full,
+                         max_variables = 4,
+                         top_n = 3,
+                         metric = "auc")
+
+cat("Results for predicting transmission type (am) from car characteristics:\n")
+summary(result_full)
+
+# Show which variables are most predictive
+best_vars <- result_full$best_model$variables
+var_names <- colnames(X_full)[best_vars]
+cat("Most predictive variables:", paste(var_names, collapse = ", "), "\n")
+```
+
+**Expected outcome**:
+
+- Results show which car characteristics best predict transmission type
+- AUC values indicate how well the models discriminate between automatic/manual
+- Coefficient signs make intuitive sense (e.g., lighter cars more likely to be manual)
 
 ## Requirements
 
@@ -221,8 +439,20 @@ The package uses standard metrics to evaluate classification models:
    If your dataset has many predictors, use `max_variables` to reduce computation time.
 2. **Enable cross-validation for reliability**:
    Use `cross_validation = TRUE` to get more stable performance estimates, especially with small datasets.
-3. **Check your response variable**:
-   The outcome `y` must be binary (only 0 and 1 values). Any other values will return an error.
+3. **Response variable requirements**:
+   The outcome `y` must contain exactly 0 and 1 values. Other binary formats require conversion:
+
+   ```r
+   # Convert factor to 0/1
+   y <- as.numeric(factor_var) - 1
+
+   # Convert logical to 0/1
+   y <- as.numeric(logical_var)
+
+   # Convert other numeric binary to 0/1
+   y <- ifelse(original_y == "success_value", 1, 0)
+   ```
+
 4. **Handle categorical predictors**:
    The package requires all predictors to be numeric. If you have categorical variables, transform them to dummy variables first using `model.matrix()`:
    ```r
