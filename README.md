@@ -223,7 +223,15 @@ The package uses standard metrics to evaluate classification models:
    Use `cross_validation = TRUE` to get more stable performance estimates, especially with small datasets.
 3. **Check your response variable**:
    The outcome `y` must be binary (only 0 and 1 values). Any other values will return an error.
-4. **Handle missing data**:
+4. **Handle categorical predictors**:
+   The package requires all predictors to be numeric. If you have categorical variables, transform them to dummy variables first using `model.matrix()`:
+   ```r
+   # Convert categorical data to dummy variables
+   df <- data.frame(x1 = rnorm(20), category = factor(c(rep('A', 10), rep('B', 10))))
+   X_processed <- model.matrix(~ . - 1, data = df)
+   result <- bestSubset(X_processed, y)
+   ```
+5. **Handle missing data**:
    If your predictors contain missing values, either preprocess the data or set the `na.action` argument (e.g., `na.omit` or `na.exclude`).
 
 ## Documentation
