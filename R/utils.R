@@ -2,19 +2,20 @@ validate_input_matrix <- function(X, var_name = "X") {
     if (!is.matrix(X) && !is.data.frame(X)) {
         stop(paste(var_name, "must be a matrix or data frame"))
     }
-    
+
     if (is.data.frame(X)) {
         non_numeric <- !sapply(X, is.numeric)
         if (any(non_numeric)) {
             categorical_vars <- names(X)[non_numeric]
-            stop("Categorical variables detected: ", paste(categorical_vars, collapse = ", "),
-                 ".\n\nbestSelectR requires numeric data. Please transform categorical variables to dummy variables first.",
-                 "\n\nExample: X_processed <- model.matrix(~ . - 1, data = your_data)",
-                 "\nThen use: bestSubset(X_processed, y)")
+            stop(
+                "Categorical variables detected: ",
+                paste(categorical_vars, collapse = ", "),
+                ".\nbestSelectR requires numeric data."
+            )
         }
         X <- as.matrix(X)
     }
-    
+
     return(X)
 }
 
@@ -34,24 +35,31 @@ format_variables_string <- function(variables) {
 
 create_coefficient_names <- function(variables, include_intercept = TRUE) {
     coef_names <- character(0)
-    
+
     if (include_intercept) {
         coef_names <- c(coef_names, "(Intercept)")
     }
-    
+
     if (length(variables) > 0) {
         var_names <- paste0("X", variables)
         coef_names <- c(coef_names, var_names)
     }
-    
+
     return(coef_names)
 }
 
 format_model_summary_line <- function(n_original, n_effective) {
     if (n_original == n_effective) {
-        return(paste("Observations:", n_effective))
+        return(paste0("Observations: ", n_effective))
     } else {
-        return(paste("Observations:", n_effective, "of", n_original, "(", 
-                    n_original - n_effective, "removed due to missing values)"))
+        return(paste0(
+            "Observations: ",
+            n_effective,
+            " of ",
+            n_original,
+            " (",
+            n_original - n_effective,
+            " removed due to missing values)"
+        ))
     }
 }

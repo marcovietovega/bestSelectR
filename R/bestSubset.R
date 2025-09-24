@@ -6,7 +6,8 @@
 #' @param X A numeric matrix or data frame of predictor variables (n x p).
 #'   Categorical variables are not supported - use model.matrix() to create
 #'   dummy variables first.
-#' @param y A numeric vector of binary outcomes (0/1)
+#' @param y A numeric vector of binary outcomes containing exactly 0 and 1 values.
+#'   Other binary formats require conversion
 #' @param max_variables Maximum number of variables to consider in subsets.
 #'   If NULL (default), considers all variables.
 #' @param top_n Number of top models to return (default: 5, max: 10)
