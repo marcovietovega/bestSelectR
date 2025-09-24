@@ -3,7 +3,9 @@
 #' Performs best subset selection for logistic regression to find
 #' the optimal subset of predictors based on various metrics.
 #'
-#' @param X A numeric matrix or data frame of predictor variables (n x p)
+#' @param X A numeric matrix or data frame of predictor variables (n x p).
+#'   Categorical variables are not supported - use model.matrix() to create
+#'   dummy variables first.
 #' @param y A numeric vector of binary outcomes (0/1)
 #' @param max_variables Maximum number of variables to consider in subsets.
 #'   If NULL (default), considers all variables.
@@ -36,25 +38,27 @@
 #' summary(result)
 #'
 #' @export
-bestSubset <- function(X, y, 
-                      max_variables = NULL,
-                      top_n = 5,
-                      metric = c("auc", "accuracy"),
-                      cross_validation = FALSE,
-                      cv_folds = 5,
-                      cv_repeats = 1,
-                      cv_seed = NULL,
-                      na.action = na.fail) {
-  
+bestSubset <- function(
+  X,
+  y,
+  max_variables = NULL,
+  top_n = 5,
+  metric = c("auc", "accuracy"),
+  cross_validation = FALSE,
+  cv_folds = 5,
+  cv_repeats = 1,
+  cv_seed = NULL,
+  na.action = na.fail
+) {
   call <- match.call()
-  
+
   include_intercept <- TRUE
   max_iterations <- 100
   tolerance <- 1e-6
-  
+
   X <- validate_input_matrix(X, "X")
   validate_dimensions(X, y)
-  
+
   na_result <- handle_missing_values(X, y, na.action)
   X_clean <- na_result$X_clean
   y_clean <- na_result$y_clean
@@ -63,24 +67,31 @@ bestSubset <- function(X, y,
 
   metric <- match.arg(metric)
 
-  validated_params <- validate_parameters(max_variables, top_n, metric,
-                                        cross_validation, cv_folds, cv_repeats,
-                                        ncol(X_clean), nrow(X_clean))
-  
+  validated_params <- validate_parameters(
+    max_variables,
+    top_n,
+    metric,
+    cross_validation,
+    cv_folds,
+    cv_repeats,
+    ncol(X_clean),
+    nrow(X_clean)
+  )
+
   detect_perfect_separation(X_clean, y_clean)
-  
+
   warn_computational_complexity(ncol(X_clean), validated_params$max_variables)
-  
+
   max_variables <- validated_params$max_variables
   top_n <- validated_params$top_n
   metric <- validated_params$metric
-  
+
   if (is.null(max_variables)) {
     max_variables <- -1L
   } else {
     max_variables <- as.integer(max_variables)
   }
-  
+
   if (is.null(cv_seed)) {
     cv_seed <- -1L
   } else {
@@ -88,7 +99,8 @@ bestSubset <- function(X, y,
   }
 
   result <- best_subset_selection(
-    X_clean, y_clean,
+    X_clean,
+    y_clean,
     max_variables = max_variables,
     top_n = top_n,
     metric = metric,
@@ -100,7 +112,7 @@ bestSubset <- function(X, y,
     max_iterations = max_iterations,
     tolerance = tolerance
   )
-  
+
   result$na_info <- list(
     na_action_used = na_result$na_action_used,
     original_n = na_result$original_n,
@@ -108,13 +120,13 @@ bestSubset <- function(X, y,
     n_removed = na_result$original_n - na_result$effective_n,
     na_map = na_result$na_map
   )
-  
+
   result$call_info$n_observations_original <- na_result$original_n
   result$call_info$n_observations <- na_result$effective_n
   result$call_info$n_removed <- na_result$original_n - na_result$effective_n
-  
+
   result$call <- call
   class(result) <- "bestSubset"
-  
+
   return(result)
 }
