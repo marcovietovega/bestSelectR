@@ -7,10 +7,6 @@ This is useful when you're not sure which variables are most important. Instead 
 ## Table of Contents
 
 - [Installation](#installation)
-- [Test Functions](#test-functions)
-  - [Basic Example (Without Cross-Validation)](#basic-example-without-cross-validation)
-  - [Example with Cross-Validation](#example-with-cross-validation)
-  - [Example with Missing Data](#example-with-missing-data)
 - [Test Plan for bestSelectR](#test-plan-for-bestselectr)
   - [1. Setup and Installation](#1-setup-and-installation)
   - [2. Basic Functionality](#2-basic-functionality)
@@ -37,61 +33,6 @@ devtools::install_github("marcovietovega/bestSelectR", build_vignettes = TRUE)
 ```
 
 You'll need `devtools` for installation. All other dependencies will be installed automatically.
-
-## Test Functions
-
-### Basic Example (Without Cross-Validation)
-
-```r
-library(bestSelectR)
-
-# Create sample data
-set.seed(123)
-X <- matrix(rnorm(50*4), nrow=50, ncol=4)
-colnames(X) <- paste0("X", 1:4)
-y <- rbinom(50, 1, plogis(X[,1] + 0.5*X[,2] - 0.3*X[,3]))
-
-# Find best variable combinations
-result <- bestSubset(X, y, max_variables=3, top_n=5)
-
-# See the results
-print(result)
-summary(result)
-```
-
-This example creates a dataset with 4 predictors and tests all subsets of up to 3 variables, ranking models by AUC.
-
-### Example with Cross-Validation
-
-```r
-# Use cross-validation for more reliable results
-result_cv <- bestSubset(X, y,
-                        max_variables=3,
-                        cross_validation=TRUE,
-                        cv_folds=5,
-                        metric="auc")
-
-# View results
-print(result_cv)
-summary(result_cv)
-```
-
-Cross-validation splits the data into k folds and evaluates models on held-out data, providing more reliable performance estimates.
-
-### Example with Missing Data
-
-```r
-# Create data with some missing values
-X_missing <- X
-X_missing[sample(length(X_missing), 20)] <- NA  # Add 20 missing values randomly
-
-# Handle missing data with listwise deletion
-result_omit <- bestSubset(X_missing, y, na.action=na.omit)
-
-print(result_omit)
-```
-
-The package supports multiple missing data strategies: `na.fail` (default), `na.omit`, and `na.exclude`.
 
 ## Test Plan for bestSelectR
 
