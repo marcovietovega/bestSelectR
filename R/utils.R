@@ -4,8 +4,13 @@ validate_input_matrix <- function(X, var_name = "X") {
     }
     
     if (is.data.frame(X)) {
-        if (!all(sapply(X, is.numeric))) {
-            stop(paste("All columns in", var_name, "must be numeric"))
+        non_numeric <- !sapply(X, is.numeric)
+        if (any(non_numeric)) {
+            categorical_vars <- names(X)[non_numeric]
+            stop("Categorical variables detected: ", paste(categorical_vars, collapse = ", "),
+                 ".\n\nbestSelectR requires numeric data. Please transform categorical variables to dummy variables first.",
+                 "\n\nExample: X_processed <- model.matrix(~ . - 1, data = your_data)",
+                 "\nThen use: bestSubset(X_processed, y)")
         }
         X <- as.matrix(X)
     }

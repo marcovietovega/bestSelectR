@@ -18,7 +18,9 @@ bestSubset(
 )
 }
 \arguments{
-\item{X}{A numeric matrix or data frame of predictor variables (n x p)}
+\item{X}{A numeric matrix or data frame of predictor variables (n x p).
+Categorical variables are not supported - use model.matrix() to create
+dummy variables first.}
 
 \item{y}{A numeric vector of binary outcomes (0/1)}
 
