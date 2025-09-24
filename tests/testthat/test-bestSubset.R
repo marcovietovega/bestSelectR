@@ -178,7 +178,6 @@ test_that("algorithm identifies strong relationships", {
   expect_true(3 %in% result$best_model$variables)
 })
 
-### HERE
 test_that("invalid X input throws appropriate errors", {
   data <- create_test_data()
 
@@ -187,6 +186,34 @@ test_that("invalid X input throws appropriate errors", {
 
   x_wrong_dim <- matrix(1:10, 5, 2)
   expect_error(bestSubset(x_wrong_dim, data$y))
+})
+
+test_that("categorical data throws helpful error message", {
+  df <- data.frame(
+    x1 = rnorm(20),
+    x2 = rnorm(20),
+    category1 = factor(c(rep('A', 10), rep('B', 10))),
+    category2 = factor(sample(letters[1:3], 20, replace = TRUE))
+  )
+  y <- rbinom(20, 1, 0.5)
+
+  expect_error(
+    bestSubset(df, y),
+    "Categorical variables detected: category1, category2"
+  )
+
+  expect_error(
+    bestSubset(df, y),
+    "bestSelectR requires numeric data"
+  )
+
+  expect_error(
+    bestSubset(df, y),
+    "model.matrix"
+  )
+
+  X_processed <- model.matrix(~ . - 1, data = df)
+  expect_no_error(bestSubset(X_processed, y, top_n = 2))
 })
 
 test_that("invalid y input throws appropriate errors", {
