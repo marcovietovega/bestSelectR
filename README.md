@@ -70,7 +70,7 @@ library(bestSelectR)
 vignette("bestSelectR-tutorial", package = "bestSelectR")
 ```
 
-### 2. Basic Functionality
+### 2. Main Functionality
 
 Test the core best subset selection functionality:
 
@@ -223,12 +223,12 @@ cat("Categorical data correctly produced error\n")
 Test with the complete mtcars dataset to demonstrate real-world usage:
 
 ```r
-# Use all numeric predictors to predict transmission type
+# Use all numeric predictors to predict car transmission type
 data(mtcars)
 X_full <- as.matrix(mtcars[, c("mpg", "cyl", "disp", "hp", "drat", "wt", "qsec", "vs", "gear", "carb")])
 y_full <- mtcars$am
 
-# Find best predictors for transmission type
+# Find best predictors for car transmission type
 result_full <- bestSubset(X_full, y_full,
                          max_variables = 4,
                          top_n = 3,
