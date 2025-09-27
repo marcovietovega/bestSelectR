@@ -1,0 +1,2 @@
+# Suppress RcppEigen warnings for clean user installation
+PKG_CXXFLAGS = -w

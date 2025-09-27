@@ -22,7 +22,8 @@ bestSubset(
 Categorical variables are not supported - use model.matrix() to create
 dummy variables first.}
 
-\item{y}{A numeric vector of binary outcomes (0/1)}
+\item{y}{A numeric vector of binary outcomes containing exactly 0 and 1 values.
+Other binary formats require conversion}
 
 \item{max_variables}{Maximum number of variables to consider in subsets.
 If NULL (default), considers all variables.}

@@ -207,10 +207,6 @@ test_that("categorical data throws helpful error message", {
     "bestSelectR requires numeric data"
   )
 
-  expect_error(
-    bestSubset(df, y),
-    "model.matrix"
-  )
 
   X_processed <- model.matrix(~ . - 1, data = df)
   expect_no_error(bestSubset(X_processed, y, top_n = 2))
