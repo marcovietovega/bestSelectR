@@ -29,7 +29,10 @@ This is useful when you're not sure which variables are most important. Instead 
 Install directly from GitHub:
 
 ```r
-devtools::install_github("marcovietovega/bestSelectR", build_vignettes = TRUE)
+devtools::install_github("marcovietovega/bestSelectR",
+  build_vignettes = TRUE,
+  INSTALL_opts = "--install-tests"
+)
 ```
 
 You'll need `devtools` for installation. All other dependencies will be installed automatically.
@@ -49,7 +52,10 @@ install.packages("devtools")
 2. Install the package from GitHub:
 
 ```r
-devtools::install_github("marcovietovega/bestSelectR", build_vignettes = TRUE)
+devtools::install_github("marcovietovega/bestSelectR",
+  build_vignettes = TRUE,
+  INSTALL_opts = "--install-tests"
+)
 ```
 
 3. Load the package:
