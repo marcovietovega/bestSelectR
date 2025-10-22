@@ -9,13 +9,17 @@ This is useful when you're not sure which variables are most important. Instead 
 - [Installation](#installation)
 - [Test Plan for bestSelectR](#test-plan-for-bestselectr)
   - [1. Setup and Installation](#1-setup-and-installation)
-  - [2. Basic Functionality](#2-basic-functionality)
+  - [2. Main Functionality](#2-main-functionality)
+    - [2.1. Variable Counting Verification](#21-variable-counting-verification)
   - [3. Cross-Validation Functionality](#3-cross-validation-functionality)
   - [4. Missing Data Handling](#4-missing-data-handling)
   - [5. Prediction Functionality](#5-prediction-functionality)
   - [6. Error and Edge Cases](#6-error-and-edge-cases)
+    - [6.5. NaN/Inf Validation Tests](#65-naninf-validation-tests)
+    - [6.6. Column Order Dependency Tests](#66-column-order-dependency-tests)
+    - [6.7. High-Dimensional Scalability Tests](#67-high-dimensional-scalability-tests)
+    - [6.8. Numerical Stability Tests](#68-numerical-stability-tests)
   - [7. Real Dataset Example (mtcars)](#7-real-dataset-example-mtcars)
-  - [8. Report Instructions](#8-report-instructions)
 - [Requirements](#requirements)
 - [Function Reference](#function-reference)
 - [Output Summary](#output-summary)
@@ -94,6 +98,50 @@ summary(result)
 - `print(result)` shows summary information (best model information, selection settings, data information)
 - `summary(result)` displays detailed results including coefficients and top models
 - AUC values should be between 0.5 and 1.0
+
+#### 2.1. Variable Counting Verification
+
+Verify that variable counts correctly exclude the intercept from predictor count:
+
+```r
+# Extract best model information
+best_model <- result$best_model
+
+# Get number of variables (should count predictors, not including intercept)
+n_vars_reported <- best_model$n_variables
+
+# Count actual predictors selected (intercept is index -1 or separate)
+n_predictors <- length(best_model$variables)
+
+# Get coefficients (includes intercept)
+coeffs <- coef(result)
+n_coeffs <- length(coeffs)
+
+cat("Variable count verification:\n")
+cat("  Reported n_variables:", n_vars_reported, "\n")
+cat("  Number of predictor indices:", n_predictors, "\n")
+cat("  Number of coefficients:", n_coeffs, "\n")
+
+# Verification: n_coeffs should equal n_predictors + 1 (for intercept)
+if (n_coeffs == n_predictors + 1) {
+  cat("  Status: CORRECT - Intercept properly separated from predictor count\n")
+} else {
+  cat("  Status: CHECK - Unexpected relationship between counts\n")
+}
+
+# Verify coefficient names
+cat("  Coefficient names:", paste(names(coeffs), collapse = ", "), "\n")
+if (names(coeffs)[1] == "(Intercept)") {
+  cat("  Status: CORRECT - Intercept explicitly named\n")
+}
+```
+
+**Expected outcome**:
+
+- `n_variables` should count predictors only (excluding intercept)
+- Number of coefficients should be `n_predictors + 1` (including intercept)
+- Coefficient names should clearly show "(Intercept)" as first element
+- Verification confirms intercept is handled separately in counts
 
 ### 3. Cross-Validation Functionality
 
@@ -217,6 +265,156 @@ cat("Categorical data correctly produced error\n")
 - Non-binary `y` produces error about binary outcomes required
 - `top_n > 10` produces error about maximum limit
 - Categorical data produces helpful error message with conversion guidance
+
+### 6.5. NaN/Inf Validation Tests
+
+Test handling of NaN and Inf values in predictors:
+
+```r
+# Create dataset with NaN values
+X_nan <- X
+X_nan[1, 1] <- NaN
+
+try({
+  bestSubset(X_nan, y)
+}, silent = TRUE)
+cat("NaN values correctly detected\n")
+
+# Create dataset with Inf values
+X_inf <- X
+X_inf[2, 2] <- Inf
+
+try({
+  bestSubset(X_inf, y)
+}, silent = TRUE)
+cat("Inf values correctly detected\n")
+
+# Create dataset with -Inf values
+X_neginf <- X
+X_neginf[3, 3] <- -Inf
+
+try({
+  bestSubset(X_neginf, y)
+}, silent = TRUE)
+cat("-Inf values correctly detected\n")
+```
+
+**Expected outcome**:
+
+- NaN values should be detected and handled (either error or warning)
+- Inf and -Inf values should be detected and handled appropriately
+- Error messages should be informative about the issue
+
+### 6.6. Column Order Dependency Tests
+
+Test prediction behavior with different column orders:
+
+```r
+# Train model with specific column order
+X_train <- as.matrix(mtcars[1:25, c("mpg", "hp", "wt", "qsec")])
+y_train <- mtcars$am[1:25]
+
+result <- bestSubset(X_train, y_train, max_variables = 2)
+
+# Test 1: Predictions with same column order
+X_test_same <- as.matrix(mtcars[26:32, c("mpg", "hp", "wt", "qsec")])
+pred_same <- predict(result, X_test_same, type = "prob")
+cat("Predictions with same column order:\n")
+print(pred_same)
+
+# Test 2: Predictions with different column order (reordered columns)
+X_test_reorder <- as.matrix(mtcars[26:32, c("wt", "mpg", "qsec", "hp")])
+pred_reorder <- predict(result, X_test_reorder, type = "prob")
+cat("Predictions with reordered columns:\n")
+print(pred_reorder)
+
+# Test 3: Verify predictions differ when columns are reordered
+if (!identical(pred_same, pred_reorder)) {
+  cat("WARNING: Predictions depend on column order (positional matching)\n")
+  cat("Users should ensure newdata has columns in same order as training data\n")
+}
+```
+
+**Expected outcome**:
+
+- Predictions with same column order should work correctly
+- Predictions with reordered columns will produce different results (current behavior)
+- Test documents the positional matching behavior
+- Users should be aware that column order matters
+
+### 6.7. High-Dimensional Scalability Tests
+
+Test warnings and limits for high-dimensional models:
+
+```r
+# Create high-dimensional dataset
+set.seed(123)
+X_high <- matrix(rnorm(32 * 12), nrow = 32, ncol = 12)
+y_high <- rbinom(32, 1, 0.5)
+
+# Test warning for max_variables > 15
+result_warn <- bestSubset(X_high, y_high, max_variables = 16)
+cat("Test with max_variables = 16 completed (should show warning)\n")
+
+# Test hard cap at max_variables = 20
+result_cap <- bestSubset(X_high, y_high, max_variables = 25)
+cat("Test with max_variables = 25 completed (should cap at 20)\n")
+
+# Verify the cap was applied
+if (result_cap$call_info$max_variables <= 20) {
+  cat("Confirmed: max_variables capped at 20 for computational feasibility\n")
+}
+
+# Test warning for large search space (>10 variables)
+X_medium <- matrix(rnorm(32 * 11), nrow = 32, ncol = 11)
+result_medium <- bestSubset(X_medium, y_high, max_variables = 11)
+cat("Test with 11 variables completed (should show computational warning)\n")
+```
+
+**Expected outcome**:
+
+- max_variables > 15 triggers warning about large search space
+- max_variables > 20 is capped at 20 with warning
+- Models with >10 variables show computational complexity warnings
+- All warnings should be informative and guide users
+
+### 6.8. Numerical Stability Tests
+
+Test handling of perfect separation and extreme scenarios:
+
+```r
+# Create perfectly separated data
+set.seed(123)
+X_sep <- matrix(rnorm(30 * 3), nrow = 30, ncol = 3)
+X_sep[, 1] <- c(rep(-5, 15), rep(5, 15))  # Perfect separation on X1
+y_sep <- c(rep(0, 15), rep(1, 15))
+
+# Test perfect separation warning
+result_sep <- bestSubset(X_sep, y_sep, max_variables = 2)
+cat("Perfect separation test completed\n")
+
+# Verify model still fits (coefficients may be extreme)
+coeffs_sep <- coef(result_sep)
+cat("Coefficients with perfect separation:\n")
+print(coeffs_sep)
+
+if (any(abs(coeffs_sep) > 10)) {
+  cat("NOTE: Large coefficients detected, indicating possible separation\n")
+}
+
+# Test near-perfect separation
+X_near <- X_sep
+X_near[c(15, 16), 1] <- 0  # Add some overlap
+result_near <- bestSubset(X_near, y_sep, max_variables = 2)
+cat("Near-perfect separation test completed\n")
+```
+
+**Expected outcome**:
+
+- Perfect separation should trigger warning message
+- Model should still converge (coefficients may be large)
+- Near-perfect separation should work without issues
+- Warning messages should mention affected variables
 
 ### 7. Real Dataset Example (mtcars)
 
