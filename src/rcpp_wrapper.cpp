@@ -118,7 +118,7 @@ List best_subset_selection(
                     var_str = "Intercept";
             }
 
-            n_variables[i] = n_vars + (include_intercept ? 1 : 0);
+            n_variables[i] = n_vars;  // Count predictors only, not intercept
             variable_names[i] = var_str;
         }
 
@@ -155,7 +155,7 @@ List best_subset_selection(
             Named("accuracy") = best_model.getAccuracy(),
             Named("auc") = best_model.getAUC(),
             Named("deviance") = best_model.getDeviance(),
-            Named("n_variables") = best_variables.size() + (include_intercept ? 1 : 0));
+            Named("n_variables") = best_variables.size());  // Count predictors only, not intercept
 
         // Call information
         List call_info = List::create(

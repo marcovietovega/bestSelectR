@@ -55,7 +55,7 @@ print.bestSubset <- function(x, ...) {
 
     cat("Best Model:\n")
     best <- x$best_model
-    cat("  Variables:", best$n_variables, "\n")
+    cat("  Predictors:", best$n_variables, "\n")
     cat("  Accuracy:", sprintf("%.4f", best$accuracy), "\n")
     cat("  AUC:", sprintf("%.4f", best$auc), "\n")
     cat("  Deviance:", sprintf("%.4f", best$deviance), "\n\n")
@@ -71,7 +71,7 @@ summary.bestSubset <- function(object, ...) {
     display_df <- data.frame(
         Rank = models_df$rank,
         Variables = models_df$variables,
-        N_Vars = models_df$n_variables,
+        N_Pred = models_df$n_variables,
         Accuracy = sprintf("%.4f", models_df$accuracy),
         AUC = sprintf("%.4f", models_df$auc),
         Deviance = sprintf("%.4f", models_df$deviance),
