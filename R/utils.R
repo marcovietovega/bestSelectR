@@ -16,6 +16,12 @@ validate_input_matrix <- function(X, var_name = "X") {
         X <- as.matrix(X)
     }
 
+    # Check for infinite or NaN values
+    if (any(is.infinite(X)) || any(is.nan(X))) {
+        stop(paste(var_name, "contains infinite (Inf/-Inf) or NaN values.",
+                   "Please remove or replace these values before fitting."))
+    }
+
     return(X)
 }
 
