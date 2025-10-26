@@ -235,6 +235,34 @@ test_that("invalid X input throws appropriate errors", {
   expect_error(bestSubset(x_wrong_dim, data$y))
 })
 
+test_that("predictor matrix rejects Inf and NaN values", {
+  data <- create_test_data()
+
+  # Inf values
+  X_inf <- data$X
+  X_inf[1, 2] <- Inf
+  expect_error(
+    bestSubset(X_inf, data$y),
+    "X contains infinite \\(Inf/-Inf\\) or NaN values"
+  )
+
+  # -Inf values
+  X_neg_inf <- data$X
+  X_neg_inf[3, 1] <- -Inf
+  expect_error(
+    bestSubset(X_neg_inf, data$y),
+    "X contains infinite \\(Inf/-Inf\\) or NaN values"
+  )
+
+  # NaN values
+  X_nan <- data$X
+  X_nan[2, 3] <- NaN
+  expect_error(
+    bestSubset(X_nan, data$y),
+    "X contains infinite \\(Inf/-Inf\\) or NaN values"
+  )
+})
+
 test_that("categorical data throws helpful error message", {
   df <- data.frame(
     x1 = rnorm(20),
