@@ -403,6 +403,22 @@ test_that("na.fail properly rejects missing data", {
   )
 })
 
+test_that("invalid na.action throws error", {
+  data <- create_test_data()
+
+  # String instead of function
+  expect_error(
+    bestSubset(data$X, data$y, na.action = "ignore"),
+    "na.action must be a function"
+  )
+
+  # Invalid function
+  expect_error(
+    bestSubset(data$X, data$y, na.action = mean),
+    "na.action must be na.fail, na.omit, or na.exclude"
+  )
+})
+
 test_that("na.omit removes missing data cases", {
   data <- create_test_data(n = 30)
 
