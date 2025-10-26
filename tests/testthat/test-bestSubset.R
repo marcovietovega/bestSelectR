@@ -85,7 +85,7 @@ test_that("max_variables parameter works correctly", {
   result <- bestSubset(data$X, data$y, max_variables = 2, top_n = 3)
 
   max_vars_in_models <- max(result$models$n_variables)
-  expect_lte(max_vars_in_models, 3)
+  expect_lte(max_vars_in_models, 2)
 })
 
 test_that("top_n parameter controls number of returned models", {
@@ -122,8 +122,8 @@ test_that("function handles edge case: single variable", {
     result <- bestSubset(data$X, data$y),
     "top_n.*exceeds available models."
   )
-  expect_lte(nrow(result$models), 2)
-  expect_true(all(result$models$n_variables <= 2))
+  expect_lte(nrow(result$models), 1)
+  expect_true(all(result$models$n_variables <= 1))
 })
 
 test_that("best_model contains expected information", {
@@ -134,7 +134,7 @@ test_that("best_model contains expected information", {
   best_model <- result$best_model
   expect_true(all(is.finite(best_model$coefficients)))
   expect_gte(best_model$n_variables, 1)
-  expect_lte(best_model$n_variables, ncol(data$X) + 1)
+  expect_lte(best_model$n_variables, ncol(data$X))
 })
 
 test_that("models data frame has correct structure", {
