@@ -85,7 +85,7 @@ test_that("max_variables parameter works correctly", {
   result <- bestSubset(data$X, data$y, max_variables = 2, top_n = 3)
 
   max_vars_in_models <- max(result$models$n_variables)
-  expect_lte(max_vars_in_models, 3)
+  expect_lte(max_vars_in_models, 2)
 })
 
 test_that("top_n parameter controls number of returned models", {
@@ -122,8 +122,8 @@ test_that("function handles edge case: single variable", {
     result <- bestSubset(data$X, data$y),
     "top_n.*exceeds available models."
   )
-  expect_lte(nrow(result$models), 2)
-  expect_true(all(result$models$n_variables <= 2))
+  expect_lte(nrow(result$models), 1)
+  expect_true(all(result$models$n_variables <= 1))
 })
 
 test_that("best_model contains expected information", {
@@ -134,7 +134,7 @@ test_that("best_model contains expected information", {
   best_model <- result$best_model
   expect_true(all(is.finite(best_model$coefficients)))
   expect_gte(best_model$n_variables, 1)
-  expect_lte(best_model$n_variables, ncol(data$X) + 1)
+  expect_lte(best_model$n_variables, ncol(data$X))
 })
 
 test_that("models data frame has correct structure", {
@@ -166,6 +166,53 @@ test_that("cross-validation functionality works", {
   expect_gte(nrow(result_cv$models), 1)
 })
 
+test_that("cv_folds and cv_repeats reject NaN and Inf", {
+  data <- create_test_data()
+
+  # cv_folds with Inf
+  expect_error(
+    bestSubset(data$X, data$y, cross_validation = TRUE, cv_folds = Inf),
+    "cv_folds must be a finite number"
+  )
+
+  # cv_folds with NaN
+  expect_error(
+    bestSubset(data$X, data$y, cross_validation = TRUE, cv_folds = NaN),
+    "cv_folds must be a finite number"
+  )
+
+  # cv_repeats with Inf
+  expect_error(
+    bestSubset(data$X, data$y, cross_validation = TRUE, cv_folds = 5, cv_repeats = Inf),
+    "cv_repeats must be a finite number"
+  )
+})
+
+test_that("cv_seed validates numeric input", {
+  data <- create_test_data()
+
+  # Non-numeric string
+  expect_error(
+    bestSubset(data$X, data$y, cross_validation = TRUE, cv_folds = 3, cv_seed = "abc"),
+    "cv_seed must be a single numeric value or NULL"
+  )
+
+  # NaN
+  expect_error(
+    bestSubset(data$X, data$y, cross_validation = TRUE, cv_folds = 3, cv_seed = NaN),
+    "cv_seed must be a finite number or NULL"
+  )
+})
+
+test_that("cv_folds > 20 triggers warning", {
+  data <- create_test_data()
+
+  expect_warning(
+    bestSubset(data$X, data$y, cross_validation = TRUE, cv_folds = 25, cv_seed = 123),
+    "cv_folds = 25 may result in very slow cross-validation"
+  )
+})
+
 test_that("algorithm identifies strong relationships", {
   data <- create_deterministic_data()
 
@@ -186,6 +233,34 @@ test_that("invalid X input throws appropriate errors", {
 
   x_wrong_dim <- matrix(1:10, 5, 2)
   expect_error(bestSubset(x_wrong_dim, data$y))
+})
+
+test_that("predictor matrix rejects Inf and NaN values", {
+  data <- create_test_data()
+
+  # Inf values
+  X_inf <- data$X
+  X_inf[1, 2] <- Inf
+  expect_error(
+    bestSubset(X_inf, data$y),
+    "X contains infinite \\(Inf/-Inf\\) or NaN values"
+  )
+
+  # -Inf values
+  X_neg_inf <- data$X
+  X_neg_inf[3, 1] <- -Inf
+  expect_error(
+    bestSubset(X_neg_inf, data$y),
+    "X contains infinite \\(Inf/-Inf\\) or NaN values"
+  )
+
+  # NaN values
+  X_nan <- data$X
+  X_nan[2, 3] <- NaN
+  expect_error(
+    bestSubset(X_nan, data$y),
+    "X contains infinite \\(Inf/-Inf\\) or NaN values"
+  )
 })
 
 test_that("categorical data throws helpful error message", {
@@ -400,6 +475,22 @@ test_that("na.fail properly rejects missing data", {
   expect_error(
     bestSubset(data$X, y_missing, na.action = na.fail),
     "Data contains missing values"
+  )
+})
+
+test_that("invalid na.action throws error", {
+  data <- create_test_data()
+
+  # String instead of function
+  expect_error(
+    bestSubset(data$X, data$y, na.action = "ignore"),
+    "na.action must be a function"
+  )
+
+  # Invalid function
+  expect_error(
+    bestSubset(data$X, data$y, na.action = mean),
+    "na.action must be na.fail, na.omit, or na.exclude"
   )
 })
 
