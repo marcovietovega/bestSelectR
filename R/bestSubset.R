@@ -9,7 +9,8 @@
 #' @param y A numeric vector of binary outcomes containing exactly 0 and 1 values.
 #'   Other binary formats require conversion
 #' @param max_variables Maximum number of variables to consider in subsets.
-#'   If NULL (default), considers all variables.
+#'   If NULL (default), considers all variables. Values > 20 will trigger
+#'   a warning about computational complexity.
 #' @param top_n Number of top models to return (default: 5, max: 10)
 #' @param metric Selection metric. One of "accuracy" or "auc" (default)
 #' @param cross_validation Logical indicating whether to use cross-validation (default: FALSE)
@@ -96,6 +97,12 @@ bestSubset <- function(
   if (is.null(cv_seed)) {
     cv_seed <- -1L
   } else {
+    if (!is.numeric(cv_seed) || length(cv_seed) != 1) {
+      stop("cv_seed must be a single numeric value or NULL")
+    }
+    if (is.nan(cv_seed) || is.infinite(cv_seed)) {
+      stop("cv_seed must be a finite number or NULL")
+    }
     cv_seed <- as.integer(cv_seed)
   }
 

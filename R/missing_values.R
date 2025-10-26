@@ -57,7 +57,18 @@ handle_missing_values <- function(X, y, na.action) {
     if (nrow(X) != length(y)) {
         stop("X and y must have the same number of observations")
     }
-    
+
+    # Validate na.action parameter
+    if (!is.function(na.action)) {
+        stop("na.action must be a function (na.fail, na.omit, or na.exclude)")
+    }
+
+    if (!identical(na.action, na.fail) &&
+        !identical(na.action, na.omit) &&
+        !identical(na.action, na.exclude)) {
+        stop("na.action must be na.fail, na.omit, or na.exclude")
+    }
+
     na_info <- check_for_missing(X, y)
     
     if (!na_info$has_missing) {

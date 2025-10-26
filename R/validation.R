@@ -9,22 +9,16 @@ validate_parameters <- function(max_variables, top_n, metric,
         if (!is.numeric(max_variables) || length(max_variables) != 1 || max_variables < 1) {
             stop("max_variables must be a positive integer")
         }
-        
+
         max_variables <- as.integer(max_variables)
-        
-        # Limit max_variables to prevent extreme computation
-        if (max_variables > 20) {
-            warning("max_variables limited to maximum of 20 for reasonable computation time", call. = FALSE)
-            max_variables <- 20
-        }
-        
+
         if (max_variables > n_predictors) {
-            warning(paste0("max_variables (", max_variables, ") exceeds predictors (", 
-                          n_predictors, "). Using all ", n_predictors, " predictors."), 
+            warning(paste0("max_variables (", max_variables, ") exceeds predictors (",
+                          n_predictors, "). Using all ", n_predictors, " predictors."),
                    call. = FALSE)
             max_variables <- n_predictors
         }
-        
+
         validated$max_variables <- max_variables
     } else {
         validated$max_variables <- NULL
@@ -65,20 +59,42 @@ validate_parameters <- function(max_variables, top_n, metric,
     
     # Validate cross-validation parameters (only when CV is enabled)
     if (cross_validation) {
-        if (!is.numeric(cv_folds) || length(cv_folds) != 1 || cv_folds < 2) {
+        if (!is.numeric(cv_folds) || length(cv_folds) != 1) {
+            stop("cv_folds must be a numeric value")
+        }
+
+        if (is.nan(cv_folds) || is.infinite(cv_folds)) {
+            stop("cv_folds must be a finite number")
+        }
+
+        if (cv_folds < 2) {
             stop("cv_folds must be at least 2")
         }
-        
+
         cv_folds <- as.integer(cv_folds)
-        
+
         if (cv_folds > n_obs) {
             stop(paste0("cv_folds (", cv_folds, ") cannot exceed observations (", n_obs, ")"))
         }
-        
-        if (!is.numeric(cv_repeats) || length(cv_repeats) != 1 || cv_repeats < 1) {
+
+        if (cv_folds > 20) {
+            warning(paste0("cv_folds = ", cv_folds, " may result in very slow cross-validation. ",
+                          "Consider using cv_folds <= 20 for reasonable performance."),
+                   call. = FALSE)
+        }
+
+        if (!is.numeric(cv_repeats) || length(cv_repeats) != 1) {
+            stop("cv_repeats must be a numeric value")
+        }
+
+        if (is.nan(cv_repeats) || is.infinite(cv_repeats)) {
+            stop("cv_repeats must be a finite number")
+        }
+
+        if (cv_repeats < 1) {
             stop("cv_repeats must be at least 1")
         }
-        
+
         cv_repeats <- as.integer(cv_repeats)
         
         validated$cv_folds <- cv_folds
@@ -162,22 +178,20 @@ detect_perfect_separation <- function(X_clean, y_clean) {
 }
 
 warn_computational_complexity <- function(n_predictors, max_variables_used) {
-    
+
     actual_p <- if (is.null(max_variables_used)) n_predictors else max_variables_used
     total_models <- 2^actual_p - 1
-    
-    if (actual_p > 10) {
-        if (actual_p <= 15) {
-            warning(paste0("Large search space (", format(total_models, big.mark = ","), 
-                          " models). Consider max_variables to limit computation time."), 
-                   call. = FALSE)
-        } else {
-            warning(paste0("Very large search space (2^", actual_p, " - 1 = ", 
-                          format(total_models, big.mark = ",", scientific = TRUE), 
-                          " models). Strongly consider max_variables <= 15."), 
-                   call. = FALSE)
-        }
+
+    # Warn when searching more than 20 variables
+    if (actual_p > 20) {
+        warning(paste0(
+            "Large search space: 2^", actual_p, " - 1 = ",
+            format(total_models, big.mark = ",", scientific = TRUE),
+            " models.\n",
+            "Computation may be very slow or infeasible. ",
+            "Consider setting max_variables <= 20 for reasonable performance."
+        ), call. = FALSE)
     }
-    
+
     return(invisible(total_models))
 }
