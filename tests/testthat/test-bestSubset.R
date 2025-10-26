@@ -166,6 +166,28 @@ test_that("cross-validation functionality works", {
   expect_gte(nrow(result_cv$models), 1)
 })
 
+test_that("cv_folds and cv_repeats reject NaN and Inf", {
+  data <- create_test_data()
+
+  # cv_folds with Inf
+  expect_error(
+    bestSubset(data$X, data$y, cross_validation = TRUE, cv_folds = Inf),
+    "cv_folds must be a finite number"
+  )
+
+  # cv_folds with NaN
+  expect_error(
+    bestSubset(data$X, data$y, cross_validation = TRUE, cv_folds = NaN),
+    "cv_folds must be a finite number"
+  )
+
+  # cv_repeats with Inf
+  expect_error(
+    bestSubset(data$X, data$y, cross_validation = TRUE, cv_folds = 5, cv_repeats = Inf),
+    "cv_repeats must be a finite number"
+  )
+})
+
 test_that("algorithm identifies strong relationships", {
   data <- create_deterministic_data()
 
