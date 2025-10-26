@@ -188,6 +188,31 @@ test_that("cv_folds and cv_repeats reject NaN and Inf", {
   )
 })
 
+test_that("cv_seed validates numeric input", {
+  data <- create_test_data()
+
+  # Non-numeric string
+  expect_error(
+    bestSubset(data$X, data$y, cross_validation = TRUE, cv_folds = 3, cv_seed = "abc"),
+    "cv_seed must be a single numeric value or NULL"
+  )
+
+  # NaN
+  expect_error(
+    bestSubset(data$X, data$y, cross_validation = TRUE, cv_folds = 3, cv_seed = NaN),
+    "cv_seed must be a finite number or NULL"
+  )
+})
+
+test_that("cv_folds > 20 triggers warning", {
+  data <- create_test_data()
+
+  expect_warning(
+    bestSubset(data$X, data$y, cross_validation = TRUE, cv_folds = 25, cv_seed = 123),
+    "cv_folds = 25 may result in very slow cross-validation"
+  )
+})
+
 test_that("algorithm identifies strong relationships", {
   data <- create_deterministic_data()
 
