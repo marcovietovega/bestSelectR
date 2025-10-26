@@ -26,8 +26,8 @@ dummy variables first.}
 Other binary formats require conversion}
 
 \item{max_variables}{Maximum number of variables to consider in subsets.
-If NULL (default), considers all variables. Values > 20 will be capped
-at 20 with a warning for computational safety.}
+If NULL (default), considers all variables. Values > 20 will trigger
+a warning about computational complexity.}
 
 \item{top_n}{Number of top models to return (default: 5, max: 10)}
 

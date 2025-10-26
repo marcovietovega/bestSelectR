@@ -77,6 +77,12 @@ validate_parameters <- function(max_variables, top_n, metric,
             stop(paste0("cv_folds (", cv_folds, ") cannot exceed observations (", n_obs, ")"))
         }
 
+        if (cv_folds > 20) {
+            warning(paste0("cv_folds = ", cv_folds, " may result in very slow cross-validation. ",
+                          "Consider using cv_folds <= 20 for reasonable performance."),
+                   call. = FALSE)
+        }
+
         if (!is.numeric(cv_repeats) || length(cv_repeats) != 1) {
             stop("cv_repeats must be a numeric value")
         }
