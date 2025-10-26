@@ -97,6 +97,12 @@ bestSubset <- function(
   if (is.null(cv_seed)) {
     cv_seed <- -1L
   } else {
+    if (!is.numeric(cv_seed) || length(cv_seed) != 1) {
+      stop("cv_seed must be a single numeric value or NULL")
+    }
+    if (is.nan(cv_seed) || is.infinite(cv_seed)) {
+      stop("cv_seed must be a finite number or NULL")
+    }
     cv_seed <- as.integer(cv_seed)
   }
 
