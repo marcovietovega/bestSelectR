@@ -50,9 +50,9 @@ validate_parameters <- function(max_variables, top_n, metric,
     validated$top_n <- top_n
     
     # Validate metric
-    valid_metrics <- c("auc", "accuracy")
+    valid_metrics <- c("auc", "accuracy", "deviance")
     if (!metric %in% valid_metrics) {
-        stop("metric must be 'auc' or 'accuracy'")
+        stop("metric must be 'auc', 'accuracy', or 'deviance'")
     }
     
     validated$metric <- metric
