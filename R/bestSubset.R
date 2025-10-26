@@ -9,8 +9,8 @@
 #' @param y A numeric vector of binary outcomes containing exactly 0 and 1 values.
 #'   Other binary formats require conversion
 #' @param max_variables Maximum number of variables to consider in subsets.
-#'   If NULL (default), considers all variables. Values > 20 will be capped
-#'   at 20 with a warning for computational safety.
+#'   If NULL (default), considers all variables. Values > 20 will trigger
+#'   a warning about computational complexity.
 #' @param top_n Number of top models to return (default: 5, max: 10)
 #' @param metric Selection metric. One of "accuracy" or "auc" (default)
 #' @param cross_validation Logical indicating whether to use cross-validation (default: FALSE)
