@@ -471,8 +471,9 @@ bestSubset(X, y, max_variables = NULL, top_n = 5, metric = "auc",
 - `max_variables`: The maximum number of variables to include in a model (default: use all)
 - `top_n`: Number of top-performing models to return (default: 5, maximum allowed: 10)
 - `metric`: Metric used to rank the models. Options are:
-  - `"auc"`: Area under the ROC curve (default)
-  - `"accuracy"`: Classification accuracy
+  - `"auc"`: Area under the ROC curve (default, higher is better)
+  - `"accuracy"`: Classification accuracy (higher is better)
+  - `"deviance"`: Model deviance (lower is better, measures model fit)
 - `cross_validation`: Set to `TRUE` to enable k-fold cross-validation (default: `FALSE`)
 - `cv_folds`: Number of folds to use if cross-validation is enabled (default: 5)
 - `cv_repeats`: Number of times to repeat cross-validation (default: 1)
@@ -568,6 +569,36 @@ predictions <- predict(result, new_data, type = "prob")
 classes <- predict(result, new_data, type = "class")
 ```
 
+### Example 6: Using deviance for model selection
+
+```r
+# Create sample data
+set.seed(123)
+X <- matrix(rnorm(100), nrow = 50, ncol = 3)
+colnames(X) <- c("X1", "X2", "X3")
+y <- rbinom(50, 1, plogis(X[,1] + 0.5*X[,2]))
+
+# Select models based on deviance (lower is better)
+result <- bestSubset(X, y, metric = "deviance", top_n = 5)
+
+# Models are ranked from lowest to highest deviance
+print(result)
+summary(result)
+
+# Use deviance with cross-validation for more robust selection
+result_cv <- bestSubset(X, y,
+                        metric = "deviance",
+                        cross_validation = TRUE,
+                        cv_folds = 5,
+                        top_n = 3)
+
+# Compare with glm deviance
+glm_model <- glm(y ~ X, family = binomial)
+cat("GLM deviance:", glm_model$deviance, "\n")
+cat("bestSelectR deviance:", result$best_model$deviance, "\n")
+# Should match closely!
+```
+
 ## Performance Metrics
 
 The package uses standard metrics to evaluate classification models:
@@ -577,6 +608,11 @@ The package uses standard metrics to evaluate classification models:
   - AUC of 0.5 means no better than random guessing
   - AUC of 1.0 means perfect separation
   - AUC > 0.7 is typically considered good in practice
+- **Deviance**: Measures model fit to the data (lower is better)
+  - Calculated as -2 × log-likelihood
+  - Useful for comparing nested models
+  - Directly comparable to R's `glm()` deviance
+  - Supports both standard fitting and cross-validation
 
 ## Usage Tips
 

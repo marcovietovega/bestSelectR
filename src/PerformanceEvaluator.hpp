@@ -12,6 +12,7 @@ public:
     // Core metric calculations
     static double calculateAccuracy(const VectorXi &predictions, const VectorXd &true_labels);
     static double calculateAUC(const VectorXd &probabilities, const VectorXd &true_labels);
+    static double calculateDeviance(const VectorXd &probabilities, const VectorXd &true_labels);
 
     // K-Fold Cross-Validation methods
     static double calculateKFold(const MatrixXd &X, const VectorXd &y,

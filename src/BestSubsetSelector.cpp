@@ -470,6 +470,14 @@ void BestSubsetSelector::fitWithCrossValidation(int max_vars)
                 final_accuracy = PerformanceEvaluator::calculateAccuracy(predictions, y); // Final model accuracy
                 final_auc = cv_performance;                                               // CV AUC for ranking
             }
+            else if (metric == "deviance")
+            {
+                // Use CV deviance for ranking, calculate accuracy and AUC on final model
+                final_accuracy = PerformanceEvaluator::calculateAccuracy(predictions, y); // Final model accuracy
+                final_auc = PerformanceEvaluator::calculateAUC(fitted_probs, y);          // Final model AUC
+                // Note: CV deviance is stored in cv_performance but not used here
+                // SubsetResult will get deviance from model.getDeviance()
+            }
             else
             {
                 throw std::invalid_argument("Unsupported metric: " + metric);

@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <random>
+#include <cfloat>
 #include "PerformanceEvaluator.hpp"
 #include "LogisticRegression.hpp"
 
@@ -90,6 +91,38 @@ double PerformanceEvaluator::calculateAUC(const VectorXd &probabilities, const V
     return auc;
 }
 
+// Calculate Deviance
+double PerformanceEvaluator::calculateDeviance(const VectorXd &probabilities, const VectorXd &true_labels)
+{
+    if (probabilities.size() != true_labels.size())
+    {
+        throw std::invalid_argument("Probabilities and true labels must have the same size");
+    }
+
+    double dev = 0.0;
+    for (int i = 0; i < true_labels.size(); ++i)
+    {
+        double p = probabilities(i);
+
+        // Clip probabilities to avoid log(0)
+        if (p < DBL_EPSILON)
+            p = DBL_EPSILON;
+        if (p > 1.0 - DBL_EPSILON)
+            p = 1.0 - DBL_EPSILON;
+
+        if (true_labels(i) == 1.0)
+        {
+            dev += -2.0 * std::log(p);
+        }
+        else
+        {
+            dev += -2.0 * std::log(1.0 - p);
+        }
+    }
+
+    return dev;
+}
+
 // K-Fold Cross-Validation method
 double PerformanceEvaluator::calculateKFold(const MatrixXd &X, const VectorXd &y,
                                             const std::vector<int> &variable_indices,
@@ -109,9 +142,9 @@ double PerformanceEvaluator::calculateKFold(const MatrixXd &X, const VectorXd &y
     }
 
     // Validate metric
-    if (metric != "accuracy" && metric != "auc")
+    if (metric != "accuracy" && metric != "auc" && metric != "deviance")
     {
-        throw std::invalid_argument("Unsupported metric: " + metric + ". Supported: 'accuracy', 'auc'");
+        throw std::invalid_argument("Unsupported metric: " + metric + ". Supported: 'accuracy', 'auc', 'deviance'");
     }
 
     // Create fold indices
@@ -183,6 +216,11 @@ double PerformanceEvaluator::calculateKFold(const MatrixXd &X, const VectorXd &y
             {
                 VectorXd probabilities = lr.predict_proba(X_test_subset);
                 fold_score = calculateAUC(probabilities, y_test);
+            }
+            else if (metric == "deviance")
+            {
+                VectorXd probabilities = lr.predict_proba(X_test_subset);
+                fold_score = calculateDeviance(probabilities, y_test);
             }
             else
             {

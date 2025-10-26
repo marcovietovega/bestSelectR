@@ -9,7 +9,7 @@ bestSubset(
   y,
   max_variables = NULL,
   top_n = 5,
-  metric = c("auc", "accuracy"),
+  metric = c("auc", "accuracy", "deviance"),
   cross_validation = FALSE,
   cv_folds = 5,
   cv_repeats = 1,
@@ -31,7 +31,9 @@ a warning about computational complexity.}
 
 \item{top_n}{Number of top models to return (default: 5, max: 10)}
 
-\item{metric}{Selection metric. One of "accuracy" or "auc" (default)}
+\item{metric}{Selection metric. One of "accuracy", "auc" (default), or "deviance".
+For "accuracy" and "auc", higher values indicate better models.
+For "deviance", lower values indicate better model fit (better match to data).}
 
 \item{cross_validation}{Logical indicating whether to use cross-validation (default: FALSE)}
 

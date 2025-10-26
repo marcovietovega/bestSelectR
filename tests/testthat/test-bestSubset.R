@@ -692,3 +692,106 @@ test_that("handles boundary case: all observations same class", {
     "Response variable must have exactly 2 distinct values"
   )
 })
+
+# Deviance metric tests
+test_that("deviance metric works correctly without CV", {
+  data <- create_test_data(n = 40, p = 3)
+
+  result <- bestSubset(data$X, data$y, metric = "deviance", top_n = 5)
+
+  # Check class and structure
+  expect_s3_class(result, "bestSubset")
+
+  # Deviance should be positive
+  expect_true(all(result$models$deviance > 0))
+
+  # Models should be sorted by deviance (ascending - lower is better)
+  expect_true(all(diff(result$models$deviance) >= 0))
+
+  # Best model should have lowest deviance
+  expect_equal(result$best_model$deviance, min(result$models$deviance))
+
+  # Metric in call_info should be "deviance"
+  expect_equal(result$call_info$metric, "deviance")
+})
+
+test_that("deviance metric sorting is ascending (lower is better)", {
+  data <- create_test_data(n = 40, p = 4)
+
+  result_dev <- bestSubset(data$X, data$y, metric = "deviance", top_n = 5)
+  result_auc <- bestSubset(data$X, data$y, metric = "auc", top_n = 5)
+
+  # Deviance should be ascending (lower first)
+  deviances <- result_dev$models$deviance
+  expect_true(all(diff(deviances) >= 0))
+
+  # AUC should be descending (higher first)
+  aucs <- result_auc$models$auc
+  expect_true(all(diff(aucs) <= 0))
+})
+
+test_that("deviance matches glm calculation", {
+  data <- create_test_data(n = 30, p = 3)
+
+  # Fit with bestSubset (all variables)
+  # With 3 variables, there are 2^3-1 = 7 possible models
+  bs_result <- bestSubset(data$X, data$y, max_variables = 3,
+                          metric = "deviance", top_n = 5)
+
+  # Find full model (all 3 variables)
+  full_model <- bs_result$models[bs_result$models$n_variables == 3, ]
+
+  # Should have at least one model with all 3 variables
+  expect_true(nrow(full_model) > 0)
+
+  # Fit with glm
+  glm_model <- glm(data$y ~ data$X, family = binomial)
+
+  # Compare deviances (should match within numerical tolerance)
+  expect_equal(full_model$deviance[1], glm_model$deviance, tolerance = 1e-5)
+})
+
+test_that("deviance with cross-validation works correctly", {
+  # Use default n=50 for CV to ensure sufficient data per fold
+  data <- create_test_data()
+
+  result_cv <- bestSubset(data$X, data$y,
+                          metric = "deviance",
+                          cross_validation = TRUE,
+                          cv_folds = 3,
+                          cv_seed = 123,
+                          top_n = 2)
+
+  # Check CV was used
+  expect_true(result_cv$call_info$use_cv)
+  expect_equal(result_cv$call_info$cv_folds, 3)
+
+  # Models should be sorted by deviance
+  expect_true(all(diff(result_cv$models$deviance) >= 0))
+
+  # Deviance values should be positive
+  expect_true(all(result_cv$models$deviance > 0))
+})
+
+test_that("deviance CV results are reproducible with seed", {
+  # Use default n=50 for CV to ensure sufficient data per fold
+  data <- create_test_data()
+
+  result1 <- bestSubset(data$X, data$y,
+                        metric = "deviance",
+                        cross_validation = TRUE,
+                        cv_folds = 3,
+                        cv_seed = 42,
+                        top_n = 1)
+
+  result2 <- bestSubset(data$X, data$y,
+                        metric = "deviance",
+                        cross_validation = TRUE,
+                        cv_folds = 3,
+                        cv_seed = 42,
+                        top_n = 1)
+
+  # Results should be identical with same seed
+  expect_equal(result1$models$deviance, result2$models$deviance)
+  expect_equal(result1$best_model$deviance, result2$best_model$deviance)
+})
