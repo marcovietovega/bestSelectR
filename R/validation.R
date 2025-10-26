@@ -65,20 +65,36 @@ validate_parameters <- function(max_variables, top_n, metric,
     
     # Validate cross-validation parameters (only when CV is enabled)
     if (cross_validation) {
-        if (!is.numeric(cv_folds) || length(cv_folds) != 1 || cv_folds < 2) {
+        if (!is.numeric(cv_folds) || length(cv_folds) != 1) {
+            stop("cv_folds must be a numeric value")
+        }
+
+        if (is.nan(cv_folds) || is.infinite(cv_folds)) {
+            stop("cv_folds must be a finite number")
+        }
+
+        if (cv_folds < 2) {
             stop("cv_folds must be at least 2")
         }
-        
+
         cv_folds <- as.integer(cv_folds)
-        
+
         if (cv_folds > n_obs) {
             stop(paste0("cv_folds (", cv_folds, ") cannot exceed observations (", n_obs, ")"))
         }
-        
-        if (!is.numeric(cv_repeats) || length(cv_repeats) != 1 || cv_repeats < 1) {
+
+        if (!is.numeric(cv_repeats) || length(cv_repeats) != 1) {
+            stop("cv_repeats must be a numeric value")
+        }
+
+        if (is.nan(cv_repeats) || is.infinite(cv_repeats)) {
+            stop("cv_repeats must be a finite number")
+        }
+
+        if (cv_repeats < 1) {
             stop("cv_repeats must be at least 1")
         }
-        
+
         cv_repeats <- as.integer(cv_repeats)
         
         validated$cv_folds <- cv_folds
