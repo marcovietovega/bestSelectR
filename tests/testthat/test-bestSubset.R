@@ -976,3 +976,163 @@ test_that("AIC and BIC are included in all output", {
   expect_true(all(result$models$aic > 0))
   expect_true(all(result$models$bic > 0))
 })
+
+# ============================================================================
+# Parallel Processing Tests
+# ============================================================================
+
+test_that("Parallel gives same results as serial", {
+  set.seed(123)
+  data <- create_test_data(n = 50, p = 6)
+
+  # Serial execution
+  result_serial <- bestSubset(data$X, data$y,
+                              max_variables = 5,
+                              top_n = 3,
+                              n_threads = 1)
+
+  # Parallel execution (2 threads)
+  result_parallel <- bestSubset(data$X, data$y,
+                                max_variables = 5,
+                                top_n = 3,
+                                n_threads = 2)
+
+  # Best model coefficients should be identical
+  expect_equal(result_serial$best_model$coefficients,
+               result_parallel$best_model$coefficients,
+               tolerance = 1e-10)
+
+  # Best model metrics should be identical
+  expect_equal(result_serial$best_model$accuracy,
+               result_parallel$best_model$accuracy,
+               tolerance = 1e-10)
+
+  expect_equal(result_serial$best_model$auc,
+               result_parallel$best_model$auc,
+               tolerance = 1e-10)
+})
+
+test_that("Parallel CV gives same results as serial CV", {
+  set.seed(123)
+  data <- create_test_data(n = 60, p = 5)
+
+  # Serial CV
+  result_serial <- bestSubset(data$X, data$y,
+                              cross_validation = TRUE,
+                              cv_folds = 3,
+                              cv_seed = 42,
+                              max_variables = 4,
+                              top_n = 2,
+                              n_threads = 1)
+
+  # Parallel CV
+  result_parallel <- bestSubset(data$X, data$y,
+                                cross_validation = TRUE,
+                                cv_folds = 3,
+                                cv_seed = 42,
+                                max_variables = 4,
+                                top_n = 2,
+                                n_threads = 2)
+
+  # Results should be identical with same seed
+  expect_equal(result_serial$best_model$coefficients,
+               result_parallel$best_model$coefficients,
+               tolerance = 1e-10)
+})
+
+test_that("Multiple parallel runs give consistent results", {
+  # Run same analysis multiple times to check for race conditions
+  results <- lapply(1:5, function(i) {
+    set.seed(123)  # Same seed for all runs
+    data <- create_test_data(n = 50, p = 6)
+    bestSubset(data$X, data$y,
+               max_variables = 5,
+               top_n = 2,
+               n_threads = 2)
+  })
+
+  # All runs should give identical best models
+  for (i in 2:5) {
+    expect_equal(results[[1]]$best_model$coefficients,
+                 results[[i]]$best_model$coefficients,
+                 tolerance = 1e-10,
+                 info = paste("Run", i, "differs from run 1"))
+  }
+})
+
+test_that("n_threads parameter validation works", {
+  data <- create_test_data(n = 30, p = 3)
+
+  # Valid: n_threads = 1
+  expect_no_error(bestSubset(data$X, data$y, n_threads = 1))
+
+  # Valid: n_threads = 2
+  expect_no_error(bestSubset(data$X, data$y, n_threads = 2))
+
+  # Valid: n_threads = NULL (auto-detect)
+  expect_no_error(bestSubset(data$X, data$y, n_threads = NULL))
+
+  # Invalid: n_threads = 0
+  expect_error(bestSubset(data$X, data$y, n_threads = 0),
+               "n_threads must be at least 1")
+
+  # Invalid: n_threads = -1
+  expect_error(bestSubset(data$X, data$y, n_threads = -1),
+               "n_threads must be at least 1")
+
+  # Invalid: n_threads = NaN
+  expect_error(bestSubset(data$X, data$y, n_threads = NaN),
+               "n_threads must be a finite number")
+
+  # Invalid: n_threads = Inf
+  expect_error(bestSubset(data$X, data$y, n_threads = Inf),
+               "n_threads must be a finite number")
+})
+
+test_that("n_threads warns when exceeding available cores", {
+  data <- create_test_data(n = 30, p = 3)
+
+  n_cores <- parallel::detectCores()
+
+  # Skip test if detectCores() returns NA (unlikely but possible)
+  skip_if(is.na(n_cores), "Cannot detect number of cores")
+
+  # Using more threads than available should trigger warning
+  expect_warning(
+    bestSubset(data$X, data$y, n_threads = n_cores + 5),
+    "n_threads.*exceeds available CPU cores.*This may reduce performance"
+  )
+
+  # Using exactly available cores should not warn
+  expect_no_warning(
+    bestSubset(data$X, data$y, n_threads = n_cores)
+  )
+
+  # Using fewer cores should not warn
+  expect_no_warning(
+    bestSubset(data$X, data$y, n_threads = max(1, n_cores - 1))
+  )
+})
+
+test_that("Parallel processing with different metrics", {
+  set.seed(456)
+  data <- create_test_data(n = 50, p = 5)
+
+  # Test with each metric
+  for (metric in c("accuracy", "auc", "deviance")) {
+    result_serial <- bestSubset(data$X, data$y,
+                                metric = metric,
+                                max_variables = 4,
+                                n_threads = 1)
+
+    result_parallel <- bestSubset(data$X, data$y,
+                                  metric = metric,
+                                  max_variables = 4,
+                                  n_threads = 2)
+
+    expect_equal(result_serial$best_model$coefficients,
+                 result_parallel$best_model$coefficients,
+                 tolerance = 1e-10,
+                 info = paste("Metric:", metric))
+  }
+})
