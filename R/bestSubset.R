@@ -15,9 +15,10 @@
 #' @param metric Selection metric. One of "accuracy", "auc" (default), "deviance", "aic", or "bic".
 #'   For "accuracy" and "auc", higher values indicate better models.
 #'   For "deviance", "aic", and "bic", lower values indicate better models.
-#'   AIC (Akaike Information Criterion) = deviance + 2k, where k is the number of parameters.
-#'   BIC (Bayesian Information Criterion) = deviance + k*log(n), where n is the sample size.
-#'   Both AIC and BIC penalize model complexity, with BIC applying a stronger penalty for larger datasets.
+#'   AIC (Akaike Information Criterion) = deviance + 2k, and BIC (Bayesian Information Criterion)
+#'   = deviance + k*log(n), where n is the sample size and k is the number of predictors only
+#'   (the intercept is not penalized). Both AIC and BIC penalize model complexity, with BIC
+#'   applying a stronger penalty for larger datasets.
 #' @param cross_validation Logical indicating whether to use cross-validation (default: FALSE)
 #' @param cv_folds Number of cross-validation folds (default: 5)
 #' @param cv_repeats Number of cross-validation repeats (default: 1)
@@ -26,6 +27,18 @@
 #' @param n_threads Number of threads for parallel processing (default: NULL for auto-detection).
 #'   Use 1 for serial execution, or specify a positive integer for a specific thread count.
 #'   Set to NULL to automatically use all available cores minus 1.
+#'
+#' @details
+#' Selection is performed by evaluating only the chosen metric (plus deviance) for every
+#' candidate subset, then sorting models by that metric and keeping the top_n models. Full
+#' metric values for all measures are computed only for the single best model after selection.
+#'
+#' Cross-validation affects selection differently depending on the metric:
+#' - For "accuracy" and "auc", the ranking uses cross-validated averages when
+#'   `cross_validation = TRUE`.
+#' - For "deviance", "aic", and "bic", the ranking always uses the full-data values even when
+#'   `cross_validation = TRUE`. In these cases CV is not used to choose the subset but can still be
+#'   used downstream for model assessment if desired.
 #'
 #' @return A list with class "bestSubset" containing:
 #' \describe{
