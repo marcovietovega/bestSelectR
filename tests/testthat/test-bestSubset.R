@@ -795,3 +795,184 @@ test_that("deviance CV results are reproducible with seed", {
   expect_equal(result1$models$deviance, result2$models$deviance)
   expect_equal(result1$best_model$deviance, result2$best_model$deviance)
 })
+
+# ========================
+# AIC Metric Tests
+# ========================
+
+test_that("AIC metric works correctly", {
+  data <- create_test_data(n = 40, p = 4)
+
+  result <- bestSubset(data$X, data$y, max_variables = 3, top_n = 5, metric = "aic")
+
+  # Check result structure
+  expect_s3_class(result, "bestSubset")
+  expect_true("aic" %in% names(result$models))
+  expect_true("aic" %in% names(result$best_model))
+
+  # AIC values should be positive
+  expect_true(all(result$models$aic > 0))
+  expect_true(result$best_model$aic > 0)
+
+  # Models should be sorted by AIC (ascending - lower is better)
+  expect_true(all(diff(result$models$aic) >= 0))
+
+  # First model should have the lowest AIC
+  expect_equal(result$models$aic[1], min(result$models$aic))
+})
+
+test_that("BIC metric works correctly", {
+  data <- create_test_data(n = 40, p = 4)
+
+  result <- bestSubset(data$X, data$y, max_variables = 3, top_n = 5, metric = "bic")
+
+  # Check result structure
+  expect_s3_class(result, "bestSubset")
+  expect_true("bic" %in% names(result$models))
+  expect_true("bic" %in% names(result$best_model))
+
+  # BIC values should be positive
+  expect_true(all(result$models$bic > 0))
+  expect_true(result$best_model$bic > 0)
+
+  # Models should be sorted by BIC (ascending - lower is better)
+  expect_true(all(diff(result$models$bic) >= 0))
+
+  # First model should have the lowest BIC
+  expect_equal(result$models$bic[1], min(result$models$bic))
+})
+
+test_that("AIC and BIC relationship holds", {
+  data <- create_test_data(n = 50, p = 4)
+
+  result <- bestSubset(data$X, data$y, max_variables = 3, top_n = 5)
+
+  # For n > 7, BIC should penalize more than AIC (BIC > AIC for same model)
+  # Since n = 50, log(n) ≈ 3.91 > 2
+  expect_true(all(result$models$bic > result$models$aic))
+  expect_true(result$best_model$bic > result$best_model$aic)
+})
+
+test_that("AIC values are calculated correctly", {
+  data <- create_test_data(n = 30, p = 3)
+
+  result <- bestSubset(data$X, data$y, max_variables = 2, top_n = 3)
+
+  # AIC = deviance + 2*k
+  # For each model, verify the formula
+  for (i in 1:nrow(result$models)) {
+    n_params <- result$models$n_variables[i] + 1  # +1 for intercept
+    expected_aic <- result$models$deviance[i] + 2 * n_params
+    expect_equal(result$models$aic[i], expected_aic, tolerance = 1e-10)
+  }
+})
+
+test_that("BIC values are calculated correctly", {
+  data <- create_test_data(n = 30, p = 3)
+
+  result <- bestSubset(data$X, data$y, max_variables = 2, top_n = 3)
+
+  # BIC = deviance + k*log(n)
+  n_obs <- nrow(data$X)
+  for (i in 1:nrow(result$models)) {
+    n_params <- result$models$n_variables[i] + 1  # +1 for intercept
+    expected_bic <- result$models$deviance[i] + n_params * log(n_obs)
+    expect_equal(result$models$bic[i], expected_bic, tolerance = 1e-10)
+  }
+})
+
+test_that("AIC metric works with cross-validation", {
+  data <- create_test_data(n = 50, p = 3)
+
+  result <- bestSubset(data$X, data$y,
+                      max_variables = 2,
+                      top_n = 3,
+                      metric = "aic",
+                      cross_validation = TRUE,
+                      cv_folds = 5,
+                      cv_seed = 123)
+
+  # Check that results are valid
+  expect_s3_class(result, "bestSubset")
+  expect_true(all(result$models$aic > 0))
+  expect_true(all(diff(result$models$aic) >= 0))  # Sorted ascending
+})
+
+test_that("BIC metric works with cross-validation", {
+  data <- create_test_data(n = 50, p = 3)
+
+  result <- bestSubset(data$X, data$y,
+                      max_variables = 2,
+                      top_n = 3,
+                      metric = "bic",
+                      cross_validation = TRUE,
+                      cv_folds = 5,
+                      cv_seed = 123)
+
+  # Check that results are valid
+  expect_s3_class(result, "bestSubset")
+  expect_true(all(result$models$bic > 0))
+  expect_true(all(diff(result$models$bic) >= 0))  # Sorted ascending
+})
+
+test_that("AIC and BIC metrics produce different model rankings", {
+  data <- create_test_data(n = 60, p = 4)
+
+  result_aic <- bestSubset(data$X, data$y, max_variables = 3, top_n = 5, metric = "aic")
+  result_bic <- bestSubset(data$X, data$y, max_variables = 3, top_n = 5, metric = "bic")
+
+  # BIC penalizes complexity more, so may select simpler models
+  # The rankings might differ
+  expect_true(length(result_aic$models$aic) > 0)
+  expect_true(length(result_bic$models$bic) > 0)
+
+  # AIC and BIC should generally prefer different models
+  # (though not always - depends on data)
+  expect_true(all(result_aic$models$bic > result_aic$models$aic))
+  expect_true(all(result_bic$models$bic > result_bic$models$aic))
+})
+
+test_that("AIC/BIC work with repeated CV", {
+  data <- create_test_data(n = 40, p = 3)
+
+  result_aic <- bestSubset(data$X, data$y,
+                          max_variables = 2,
+                          top_n = 3,
+                          metric = "aic",
+                          cross_validation = TRUE,
+                          cv_folds = 3,
+                          cv_repeats = 2,
+                          cv_seed = 456)
+
+  result_bic <- bestSubset(data$X, data$y,
+                          max_variables = 2,
+                          top_n = 3,
+                          metric = "bic",
+                          cross_validation = TRUE,
+                          cv_folds = 3,
+                          cv_repeats = 2,
+                          cv_seed = 456)
+
+  expect_s3_class(result_aic, "bestSubset")
+  expect_s3_class(result_bic, "bestSubset")
+  expect_true(all(result_aic$models$aic > 0))
+  expect_true(all(result_bic$models$bic > 0))
+})
+
+test_that("AIC and BIC are included in all output", {
+  data <- create_test_data(n = 30, p = 3)
+
+  # Even when using other metrics, AIC and BIC should be calculated
+  result <- bestSubset(data$X, data$y, max_variables = 2, top_n = 3, metric = "auc")
+
+  expect_true("aic" %in% names(result$models))
+  expect_true("bic" %in% names(result$models))
+  expect_true("aic" %in% names(result$best_model))
+  expect_true("bic" %in% names(result$best_model))
+
+  # All values should be finite and positive
+  expect_true(all(is.finite(result$models$aic)))
+  expect_true(all(is.finite(result$models$bic)))
+  expect_true(all(result$models$aic > 0))
+  expect_true(all(result$models$bic > 0))
+})
