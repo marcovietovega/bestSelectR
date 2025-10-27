@@ -12,8 +12,8 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // best_subset_selection
-List best_subset_selection(NumericMatrix X_r, NumericVector y_r, int max_variables, int top_n, std::string metric, bool use_cv, int cv_folds, int cv_repeats, int cv_seed, bool include_intercept, int max_iterations, double tolerance);
-RcppExport SEXP _bestSelectR_best_subset_selection(SEXP X_rSEXP, SEXP y_rSEXP, SEXP max_variablesSEXP, SEXP top_nSEXP, SEXP metricSEXP, SEXP use_cvSEXP, SEXP cv_foldsSEXP, SEXP cv_repeatsSEXP, SEXP cv_seedSEXP, SEXP include_interceptSEXP, SEXP max_iterationsSEXP, SEXP toleranceSEXP) {
+List best_subset_selection(NumericMatrix X_r, NumericVector y_r, int max_variables, int top_n, std::string metric, bool use_cv, int cv_folds, int cv_repeats, int cv_seed, bool include_intercept, int max_iterations, double tolerance, int n_threads);
+RcppExport SEXP _bestSelectR_best_subset_selection(SEXP X_rSEXP, SEXP y_rSEXP, SEXP max_variablesSEXP, SEXP top_nSEXP, SEXP metricSEXP, SEXP use_cvSEXP, SEXP cv_foldsSEXP, SEXP cv_repeatsSEXP, SEXP cv_seedSEXP, SEXP include_interceptSEXP, SEXP max_iterationsSEXP, SEXP toleranceSEXP, SEXP n_threadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -29,7 +29,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< bool >::type include_intercept(include_interceptSEXP);
     Rcpp::traits::input_parameter< int >::type max_iterations(max_iterationsSEXP);
     Rcpp::traits::input_parameter< double >::type tolerance(toleranceSEXP);
-    rcpp_result_gen = Rcpp::wrap(best_subset_selection(X_r, y_r, max_variables, top_n, metric, use_cv, cv_folds, cv_repeats, cv_seed, include_intercept, max_iterations, tolerance));
+    Rcpp::traits::input_parameter< int >::type n_threads(n_threadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(best_subset_selection(X_r, y_r, max_variables, top_n, metric, use_cv, cv_folds, cv_repeats, cv_seed, include_intercept, max_iterations, tolerance, n_threads));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -48,7 +49,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_bestSelectR_best_subset_selection", (DL_FUNC) &_bestSelectR_best_subset_selection, 12},
+    {"_bestSelectR_best_subset_selection", (DL_FUNC) &_bestSelectR_best_subset_selection, 13},
     {"_bestSelectR_predict_best_subset", (DL_FUNC) &_bestSelectR_predict_best_subset, 3},
     {NULL, NULL, 0}
 };
