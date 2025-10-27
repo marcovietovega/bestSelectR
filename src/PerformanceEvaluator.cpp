@@ -123,6 +123,18 @@ double PerformanceEvaluator::calculateDeviance(const VectorXd &probabilities, co
     return dev;
 }
 
+// Calculate AIC (Akaike Information Criterion)
+double PerformanceEvaluator::calculateAIC(double deviance, int n_parameters)
+{
+    return deviance + 2.0 * n_parameters;
+}
+
+// Calculate BIC (Bayesian Information Criterion)
+double PerformanceEvaluator::calculateBIC(double deviance, int n_parameters, int n_observations)
+{
+    return deviance + n_parameters * std::log(n_observations);
+}
+
 // K-Fold Cross-Validation method
 double PerformanceEvaluator::calculateKFold(const MatrixXd &X, const VectorXd &y,
                                             const std::vector<int> &variable_indices,
@@ -142,9 +154,10 @@ double PerformanceEvaluator::calculateKFold(const MatrixXd &X, const VectorXd &y
     }
 
     // Validate metric
-    if (metric != "accuracy" && metric != "auc" && metric != "deviance")
+    if (metric != "accuracy" && metric != "auc" && metric != "deviance" &&
+        metric != "aic" && metric != "bic")
     {
-        throw std::invalid_argument("Unsupported metric: " + metric + ". Supported: 'accuracy', 'auc', 'deviance'");
+        throw std::invalid_argument("Unsupported metric: " + metric + ". Supported: 'accuracy', 'auc', 'deviance', 'aic', 'bic'");
     }
 
     // Create fold indices
@@ -221,6 +234,20 @@ double PerformanceEvaluator::calculateKFold(const MatrixXd &X, const VectorXd &y
             {
                 VectorXd probabilities = lr.predict_proba(X_test_subset);
                 fold_score = calculateDeviance(probabilities, y_test);
+            }
+            else if (metric == "aic")
+            {
+                VectorXd probabilities = lr.predict_proba(X_test_subset);
+                double deviance = calculateDeviance(probabilities, y_test);
+                int n_params = X_train_subset.cols();
+                fold_score = calculateAIC(deviance, n_params);
+            }
+            else if (metric == "bic")
+            {
+                VectorXd probabilities = lr.predict_proba(X_test_subset);
+                double deviance = calculateDeviance(probabilities, y_test);
+                int n_params = X_train_subset.cols();
+                fold_score = calculateBIC(deviance, n_params, y_train.size());
             }
             else
             {
