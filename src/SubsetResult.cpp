@@ -19,14 +19,14 @@ SubsetResult::SubsetResult(const Model &fitted_model, double acc, double auc_sco
       variable_indices(fitted_model.getVariableIndices()),
       n_variables(fitted_model.getNumVariables()), is_valid(true)
 {
-    // Validate inputs
-    if (acc < 0.0 || acc > 1.0)
+    // Validate inputs (allow NA values for uncomputed metrics)
+    if (!std::isnan(acc) && (acc < 0.0 || acc > 1.0))
     {
-        throw std::invalid_argument("Accuracy must be between 0 and 1");
+        throw std::invalid_argument("Accuracy must be between 0 and 1 or NA");
     }
-    if (auc_score < 0.0 || auc_score > 1.0)
+    if (!std::isnan(auc_score) && (auc_score < 0.0 || auc_score > 1.0))
     {
-        throw std::invalid_argument("AUC must be between 0 and 1");
+        throw std::invalid_argument("AUC must be between 0 and 1 or NA");
     }
     if (!fitted_model.isFitted())
     {
@@ -42,13 +42,14 @@ void SubsetResult::setResult(const Model &fitted_model, double acc, double auc_s
     {
         throw std::invalid_argument("Model must be fitted");
     }
-    if (acc < 0.0 || acc > 1.0)
+    // Validate inputs (allow NA values for uncomputed metrics)
+    if (!std::isnan(acc) && (acc < 0.0 || acc > 1.0))
     {
-        throw std::invalid_argument("Accuracy must be between 0 and 1");
+        throw std::invalid_argument("Accuracy must be between 0 and 1 or NA");
     }
-    if (auc_score < 0.0 || auc_score > 1.0)
+    if (!std::isnan(auc_score) && (auc_score < 0.0 || auc_score > 1.0))
     {
-        throw std::invalid_argument("AUC must be between 0 and 1");
+        throw std::invalid_argument("AUC must be between 0 and 1 or NA");
     }
 
     model = fitted_model;
