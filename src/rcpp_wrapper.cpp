@@ -1,5 +1,8 @@
 #include <Rcpp.h>
 #include <RcppEigen.h>
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 #include "BestSubsetSelector.hpp"
 #include "PerformanceEvaluator.hpp"
 #include "LogisticRegression.hpp"
@@ -26,7 +29,8 @@ List best_subset_selection(
     int cv_seed = -1,
     bool include_intercept = true,
     int max_iterations = 100,
-    double tolerance = 1e-6)
+    double tolerance = 1e-6,
+    int n_threads = -1)
 {
     try
     {
@@ -60,6 +64,21 @@ List best_subset_selection(
             max_variables = X_eigen.cols();
         }
 
+        // Configure OpenMP threads
+        #ifdef _OPENMP
+        int original_threads = omp_get_max_threads();
+        if (n_threads > 0)
+        {
+            omp_set_num_threads(n_threads);
+        }
+        else if (n_threads == 0)
+        {
+            // n_threads = 0 means serial execution
+            omp_set_num_threads(1);
+        }
+        // n_threads = -1 (default) uses OpenMP default (all available threads)
+        #endif
+
         // Create BestSubsetSelector
         BestSubsetSelector selector(X_eigen, y_eigen, include_intercept);
 
@@ -76,6 +95,11 @@ List best_subset_selection(
 
         // Fit the model
         selector.fit();
+
+        // Restore original thread count
+        #ifdef _OPENMP
+        omp_set_num_threads(original_threads);
+        #endif
 
         // Get results
         std::vector<SubsetResult> best_results = selector.getBestResults();
