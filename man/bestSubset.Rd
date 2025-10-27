@@ -35,9 +35,10 @@ a warning about computational complexity.}
 \item{metric}{Selection metric. One of "accuracy", "auc" (default), "deviance", "aic", or "bic".
 For "accuracy" and "auc", higher values indicate better models.
 For "deviance", "aic", and "bic", lower values indicate better models.
-AIC (Akaike Information Criterion) = deviance + 2k, where k is the number of parameters.
-BIC (Bayesian Information Criterion) = deviance + k*log(n), where n is the sample size.
-Both AIC and BIC penalize model complexity, with BIC applying a stronger penalty for larger datasets.}
+AIC (Akaike Information Criterion) = deviance + 2k, and BIC (Bayesian Information Criterion)
+= deviance + k*log(n), where n is the sample size and k is the number of predictors only
+(the intercept is not penalized). Both AIC and BIC penalize model complexity, with BIC
+applying a stronger penalty for larger datasets.}
 
 \item{cross_validation}{Logical indicating whether to use cross-validation (default: FALSE)}
 
@@ -65,6 +66,20 @@ A list with class "bestSubset" containing:
 \description{
 Performs best subset selection for logistic regression to find
 the optimal subset of predictors based on various metrics.
+}
+\details{
+Selection is performed by evaluating only the chosen metric (plus deviance) for every
+candidate subset, then sorting models by that metric and keeping the top_n models. Full
+metric values for all measures are computed only for the single best model after selection.
+
+Cross-validation affects selection differently depending on the metric:
+\itemize{
+\item For "accuracy" and "auc", the ranking uses cross-validated averages when
+\code{cross_validation = TRUE}.
+\item For "deviance", "aic", and "bic", the ranking always uses the full-data values even when
+\code{cross_validation = TRUE}. In these cases CV is not used to choose the subset but can still be
+used downstream for model assessment if desired.
+}
 }
 \examples{
 # Generate sample data (small for fast execution)
