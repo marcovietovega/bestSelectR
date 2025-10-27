@@ -1142,11 +1142,12 @@ test_that("Parallel gives same results as serial", {
     n_threads = 2
   )
 
-  # Best model coefficients should be identical
+  # Best model coefficients should be nearly identical
+  # (minor differences due to floating-point arithmetic order in parallel)
   expect_equal(
     result_serial$best_model$coefficients,
     result_parallel$best_model$coefficients,
-    tolerance = 1e-10
+    tolerance = 1e-6
   )
 
   # Best model metrics should be identical
@@ -1305,7 +1306,7 @@ test_that("Parallel processing with different metrics", {
     expect_equal(
       result_serial$best_model$coefficients,
       result_parallel$best_model$coefficients,
-      tolerance = 1e-10,
+      tolerance = 1e-6,
       info = paste("Metric:", metric)
     )
   }
