@@ -4,6 +4,11 @@
 #include <stdexcept>
 #include <cmath>
 #include <bitset>
+#include <atomic>
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+#include <Rcpp.h>
 #include "BestSubsetSelector.hpp"
 
 using namespace std;
@@ -142,14 +147,26 @@ void BestSubsetSelector::fit(int max_vars, int top_n, const std::string &selecti
 
     // Generate all variable subsets
     std::vector<std::vector<int>> subsets = generateVariableSubsets(max_variables);
+    int n_subsets = subsets.size();
 
-    all_results.clear();
+    // Pre-allocate results for thread safety
+    std::vector<SubsetResult> parallel_results(n_subsets);
+    std::vector<bool> success_flags(n_subsets, false);
 
-    // Fit model for each subset
-    for (const auto &subset : subsets)
+    // Progress reporting setup
+    std::atomic<int> completed(0);
+    int report_interval = std::max(1, n_subsets / 100);  // Report every 1%
+
+    // Parallel loop over subsets with OpenMP
+    #ifdef _OPENMP
+    #pragma omp parallel for schedule(dynamic, 10)
+    #endif
+    for (int idx = 0; idx < n_subsets; ++idx)
     {
         try
         {
+            const auto &subset = subsets[idx];
+
             // Extract subset matrix
             MatrixXd X_subset = extractSubsetMatrix(subset);
 
@@ -175,13 +192,42 @@ void BestSubsetSelector::fit(int max_vars, int top_n, const std::string &selecti
             double aic_value = PerformanceEvaluator::calculateAIC(deviance, n_params);
             double bic_value = PerformanceEvaluator::calculateBIC(deviance, n_params, n_observations);
 
-            // Create SubsetResult
-            SubsetResult result(model, accuracy, auc, aic_value, bic_value);
-            all_results.push_back(result);
+            // Create SubsetResult and store at unique index (thread-safe)
+            parallel_results[idx] = SubsetResult(model, accuracy, auc, aic_value, bic_value);
+            success_flags[idx] = true;
         }
         catch (const std::exception &e)
         {
             // Continue with other models if one fails
+            // success_flags[idx] remains false
+        }
+
+        // Update progress
+        int current = ++completed;
+        if (current % report_interval == 0 || current == n_subsets)
+        {
+            #ifdef _OPENMP
+            #pragma omp critical
+            #endif
+            {
+                Rcpp::Rcout << "\rEvaluated " << current << " / " << n_subsets
+                            << " models (" << (100 * current / n_subsets) << "%)"
+                            << std::flush;
+            }
+        }
+    }
+
+    // Print completion message
+    Rcpp::Rcout << "\rEvaluated " << n_subsets << " / " << n_subsets
+                << " models (100%)    \n" << std::flush;
+
+    // Collect successful results (sequential section)
+    all_results.clear();
+    for (int idx = 0; idx < n_subsets; ++idx)
+    {
+        if (success_flags[idx])
+        {
+            all_results.push_back(parallel_results[idx]);
         }
     }
 
@@ -426,11 +472,24 @@ int BestSubsetSelector::getCVSeed() const
 void BestSubsetSelector::fitWithCrossValidation(int max_vars)
 {
     std::vector<std::vector<int>> subsets = generateVariableSubsets(max_vars);
+    int n_subsets = subsets.size();
 
-    all_results.clear();
+    // Pre-allocate results for thread safety
+    std::vector<SubsetResult> parallel_results(n_subsets);
+    std::vector<bool> success_flags(n_subsets, false);
 
-    for (const auto &subset : subsets)
+    // Progress reporting setup
+    std::atomic<int> completed(0);
+    int report_interval = std::max(1, n_subsets / 100);  // Report every 1%
+
+    // Parallel loop over subsets with OpenMP
+    #ifdef _OPENMP
+    #pragma omp parallel for schedule(dynamic, 10)
+    #endif
+    for (int idx = 0; idx < n_subsets; ++idx)
     {
+        const auto &subset = subsets[idx];
+
         if (subset.empty())
             continue;
 
@@ -506,14 +565,43 @@ void BestSubsetSelector::fitWithCrossValidation(int max_vars)
             double aic_value = PerformanceEvaluator::calculateAIC(deviance, n_params);
             double bic_value = PerformanceEvaluator::calculateBIC(deviance, n_params, n_observations);
 
-            // Create SubsetResult
-            SubsetResult result(model, final_accuracy, final_auc, aic_value, bic_value);
-            all_results.push_back(result);
+            // Create SubsetResult and store at unique index (thread-safe)
+            parallel_results[idx] = SubsetResult(model, final_accuracy, final_auc, aic_value, bic_value);
+            success_flags[idx] = true;
         }
         catch (const std::exception &e)
         {
             // Skip failed subsets
+            // success_flags[idx] remains false
             continue;
+        }
+
+        // Update progress
+        int current = ++completed;
+        if (current % report_interval == 0 || current == n_subsets)
+        {
+            #ifdef _OPENMP
+            #pragma omp critical
+            #endif
+            {
+                Rcpp::Rcout << "\rEvaluated " << current << " / " << n_subsets
+                            << " models (" << (100 * current / n_subsets) << "%)"
+                            << std::flush;
+            }
+        }
+    }
+
+    // Print completion message
+    Rcpp::Rcout << "\rEvaluated " << n_subsets << " / " << n_subsets
+                << " models (100%)    \n" << std::flush;
+
+    // Collect successful results (sequential section)
+    all_results.clear();
+    for (int idx = 0; idx < n_subsets; ++idx)
+    {
+        if (success_flags[idx])
+        {
+            all_results.push_back(parallel_results[idx]);
         }
     }
 
