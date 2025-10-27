@@ -179,18 +179,36 @@ void BestSubsetSelector::fit(int max_vars, int top_n, const std::string &selecti
             std::vector<int> indices_for_model = include_intercept ? addInterceptColumn(subset) : subset;
             model.fitFromLogisticRegression(lr, indices_for_model);
 
-            // Calculate performance metrics
-            VectorXd fitted_probs = lr.get_fitted_values();
-            VectorXi predictions = lr.predict(X_subset);
+            // Calculate only the metrics needed for selection (optimize performance)
+            double accuracy = NA_REAL;
+            double auc = NA_REAL;
+            double aic_value = NA_REAL;
+            double bic_value = NA_REAL;
 
-            double accuracy = PerformanceEvaluator::calculateAccuracy(predictions, y);
-            double auc = PerformanceEvaluator::calculateAUC(fitted_probs, y);
-
-            // Calculate AIC and BIC
+            // Always calculate deviance (needed for AIC/BIC and is cheap)
             double deviance = model.getDeviance();
             int n_params = X_subset.cols();
-            double aic_value = PerformanceEvaluator::calculateAIC(deviance, n_params);
-            double bic_value = PerformanceEvaluator::calculateBIC(deviance, n_params, n_observations);
+
+            // Calculate based on selected metric
+            if (metric == "accuracy")
+            {
+                VectorXi predictions = lr.predict(X_subset);
+                accuracy = PerformanceEvaluator::calculateAccuracy(predictions, y);
+            }
+            else if (metric == "auc")
+            {
+                VectorXd fitted_probs = lr.get_fitted_values();
+                auc = PerformanceEvaluator::calculateAUC(fitted_probs, y);
+            }
+            else if (metric == "aic")
+            {
+                aic_value = PerformanceEvaluator::calculateAIC(deviance, n_params);
+            }
+            else if (metric == "bic")
+            {
+                bic_value = PerformanceEvaluator::calculateBIC(deviance, n_params, n_observations);
+            }
+            // For "deviance" metric, deviance is already calculated
 
             // Create SubsetResult and store at unique index (thread-safe)
             parallel_results[idx] = SubsetResult(model, accuracy, auc, aic_value, bic_value);
@@ -241,6 +259,42 @@ void BestSubsetSelector::fit(int max_vars, int top_n, const std::string &selecti
     for (int i = 0; i < n_to_keep; ++i)
     {
         best_results.push_back(all_results[i]);
+    }
+
+    // Calculate all metrics for the best model (for complete reporting)
+    // This ensures best model has complete info without refitting
+    if (!best_results.empty())
+    {
+        SubsetResult &best = best_results[0];
+        Model best_model = best.getModel();
+        std::vector<int> var_indices = best_model.getVariableIndices();
+
+        // Remove intercept marker (-1) from indices to get just predictor indices
+        std::vector<int> predictor_indices;
+        for (int idx : var_indices) {
+            if (idx != -1) {
+                predictor_indices.push_back(idx);
+            }
+        }
+
+        // Extract subset matrix (this will add intercept if needed)
+        MatrixXd X_best = extractSubsetMatrix(predictor_indices);
+
+        // Use existing model to calculate missing metrics (don't refit!)
+        VectorXi predictions = best_model.predict(X_best);
+        double accuracy = PerformanceEvaluator::calculateAccuracy(predictions, y);
+
+        VectorXd fitted_probs = best_model.predict_proba(X_best);
+        double auc = PerformanceEvaluator::calculateAUC(fitted_probs, y);
+
+        // Get existing deviance and calculate AIC/BIC
+        double deviance = best_model.getDeviance();
+        int n_params = X_best.cols();
+        double aic_value = PerformanceEvaluator::calculateAIC(deviance, n_params);
+        double bic_value = PerformanceEvaluator::calculateBIC(deviance, n_params, n_observations);
+
+        // Update best result with all metrics (preserving the same model)
+        best_results[0] = SubsetResult(best_model, accuracy, auc, aic_value, bic_value);
     }
 
     is_fitted = true;
@@ -520,50 +574,42 @@ void BestSubsetSelector::fitWithCrossValidation(int max_vars)
             std::vector<int> indices_for_model = include_intercept ? addInterceptColumn(subset) : subset;
             model.fitFromLogisticRegression(lr, indices_for_model);
 
-            // Calculate final model metrics (only computed once per subset)
-            VectorXd fitted_probs = lr.get_fitted_values();
-            VectorXi predictions = lr.predict(X_subset);
+            // Calculate only the metrics needed for selection (optimize performance)
+            double final_accuracy = NA_REAL;
+            double final_auc = NA_REAL;
+            double aic_value = NA_REAL;
+            double bic_value = NA_REAL;
 
-            double final_accuracy = 0.0, final_auc = 0.0; // Initialize to avoid warnings
+            // Always calculate deviance (needed for AIC/BIC and is cheap)
+            double deviance = model.getDeviance();
+            int n_params = indices_for_model.size();
 
+            // Calculate based on selected metric (only what's needed)
             if (metric == "accuracy")
             {
-                // Use CV accuracy for ranking, calculate AUC only once on final model
-                final_accuracy = cv_performance;                                 // CV accuracy for ranking
-                final_auc = PerformanceEvaluator::calculateAUC(fitted_probs, y); // Final model AUC
+                // Use CV accuracy for ranking
+                final_accuracy = cv_performance;
             }
             else if (metric == "auc")
             {
-                // Use CV AUC for ranking, calculate accuracy only once on final model
-                final_accuracy = PerformanceEvaluator::calculateAccuracy(predictions, y); // Final model accuracy
-                final_auc = cv_performance;                                               // CV AUC for ranking
+                // Use CV AUC for ranking
+                final_auc = cv_performance;
             }
-            else if (metric == "deviance")
+            else if (metric == "aic")
             {
-                // Use CV deviance for ranking, calculate accuracy and AUC on final model
-                final_accuracy = PerformanceEvaluator::calculateAccuracy(predictions, y); // Final model accuracy
-                final_auc = PerformanceEvaluator::calculateAUC(fitted_probs, y);          // Final model AUC
-                // Note: CV deviance is stored in cv_performance but not used here
-                // SubsetResult will get deviance from model.getDeviance()
+                // Calculate AIC (CV AIC is in cv_performance but we use final model AIC)
+                aic_value = PerformanceEvaluator::calculateAIC(deviance, n_params);
             }
-            else if (metric == "aic" || metric == "bic")
+            else if (metric == "bic")
             {
-                // Use CV AIC/BIC for ranking, calculate accuracy and AUC on final model
-                final_accuracy = PerformanceEvaluator::calculateAccuracy(predictions, y);
-                final_auc = PerformanceEvaluator::calculateAUC(fitted_probs, y);
-                // Note: CV AIC/BIC is stored in cv_performance but not used here
-                // SubsetResult will get AIC/BIC from calculations below
+                // Calculate BIC (CV BIC is in cv_performance but we use final model BIC)
+                bic_value = PerformanceEvaluator::calculateBIC(deviance, n_params, n_observations);
             }
-            else
+            // For "deviance" metric, deviance is already calculated
+            else if (metric != "deviance")
             {
                 throw std::invalid_argument("Unsupported metric: " + metric);
             }
-
-            // Calculate AIC and BIC
-            double deviance = model.getDeviance();
-            int n_params = indices_for_model.size();
-            double aic_value = PerformanceEvaluator::calculateAIC(deviance, n_params);
-            double bic_value = PerformanceEvaluator::calculateBIC(deviance, n_params, n_observations);
 
             // Create SubsetResult and store at unique index (thread-safe)
             parallel_results[idx] = SubsetResult(model, final_accuracy, final_auc, aic_value, bic_value);
@@ -615,6 +661,42 @@ void BestSubsetSelector::fitWithCrossValidation(int max_vars)
     for (int i = 0; i < n_to_keep; ++i)
     {
         best_results.push_back(all_results[i]);
+    }
+
+    // Calculate all metrics for the best model (for complete reporting)
+    // This ensures best model has complete info without refitting
+    if (!best_results.empty())
+    {
+        SubsetResult &best = best_results[0];
+        Model best_model = best.getModel();
+        std::vector<int> var_indices = best_model.getVariableIndices();
+
+        // Remove intercept marker (-1) from indices to get just predictor indices
+        std::vector<int> predictor_indices;
+        for (int idx : var_indices) {
+            if (idx != -1) {
+                predictor_indices.push_back(idx);
+            }
+        }
+
+        // Extract subset matrix (this will add intercept if needed)
+        MatrixXd X_best = extractSubsetMatrix(predictor_indices);
+
+        // Use existing model to calculate missing metrics (don't refit!)
+        VectorXi predictions = best_model.predict(X_best);
+        double accuracy = PerformanceEvaluator::calculateAccuracy(predictions, y);
+
+        VectorXd fitted_probs = best_model.predict_proba(X_best);
+        double auc = PerformanceEvaluator::calculateAUC(fitted_probs, y);
+
+        // Get existing deviance and calculate AIC/BIC
+        double deviance = best_model.getDeviance();
+        int n_params = X_best.cols();
+        double aic_value = PerformanceEvaluator::calculateAIC(deviance, n_params);
+        double bic_value = PerformanceEvaluator::calculateBIC(deviance, n_params, n_observations);
+
+        // Update best result with all metrics (preserving the same model)
+        best_results[0] = SubsetResult(best_model, accuracy, auc, aic_value, bic_value);
     }
 
     is_fitted = true;
