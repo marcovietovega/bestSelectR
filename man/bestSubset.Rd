@@ -14,7 +14,8 @@ bestSubset(
   cv_folds = 5,
   cv_repeats = 1,
   cv_seed = NULL,
-  na.action = na.fail
+  na.action = na.fail,
+  n_threads = NULL
 )
 }
 \arguments{
@@ -47,6 +48,10 @@ Both AIC and BIC penalize model complexity, with BIC applying a stronger penalty
 \item{cv_seed}{Random seed for cross-validation reproducibility (default: NULL)}
 
 \item{na.action}{How to handle missing values. One of na.fail (default), na.omit, or na.exclude}
+
+\item{n_threads}{Number of threads for parallel processing (default: NULL for auto-detection).
+Use 1 for serial execution, or specify a positive integer for a specific thread count.
+Set to NULL to automatically use all available cores minus 1.}
 }
 \value{
 A list with class "bestSubset" containing:
