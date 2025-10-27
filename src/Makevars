@@ -1,2 +1,9 @@
-# Suppress RcppEigen warnings for clean user installation
-PKG_CXXFLAGS = -w
+CC=/opt/homebrew/opt/llvm/bin/clang
+CXX=/opt/homebrew/opt/llvm/bin/clang++
+CXX11=/opt/homebrew/opt/llvm/bin/clang++
+CXX14=/opt/homebrew/opt/llvm/bin/clang++
+CXX17=/opt/homebrew/opt/llvm/bin/clang++
+CXX20=/opt/homebrew/opt/llvm/bin/clang++
+
+PKG_CXXFLAGS=-fopenmp -I/opt/homebrew/opt/llvm/include
+PKG_LIBS=-L/opt/homebrew/opt/llvm/lib /opt/homebrew/opt/llvm/lib/libomp.dylib -Wl,-rpath,/opt/homebrew/opt/llvm/lib
