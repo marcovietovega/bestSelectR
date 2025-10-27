@@ -1,9 +1,23 @@
-CC=/opt/homebrew/opt/llvm/bin/clang
-CXX=/opt/homebrew/opt/llvm/bin/clang++
-CXX11=/opt/homebrew/opt/llvm/bin/clang++
-CXX14=/opt/homebrew/opt/llvm/bin/clang++
-CXX17=/opt/homebrew/opt/llvm/bin/clang++
-CXX20=/opt/homebrew/opt/llvm/bin/clang++
+## Makevars for bestSelectR
+## High-performance compilation flags
 
-PKG_CXXFLAGS=-fopenmp -I/opt/homebrew/opt/llvm/include
-PKG_LIBS=-L/opt/homebrew/opt/llvm/lib /opt/homebrew/opt/llvm/lib/libomp.dylib -Wl,-rpath,/opt/homebrew/opt/llvm/lib
+# Note: Package Makevars are APPENDED to user ~/.R/Makevars
+# To use these optimizations, ensure your ~/.R/Makevars doesn't override PKG_CXXFLAGS
+
+# Base flags (always applied)
+PKG_CXXFLAGS += -DEIGEN_NO_DEBUG -DNDEBUG
+
+# Performance optimizations for development/benchmarking
+# Comment out the following lines for CRAN submission or maximum compatibility
+PKG_CXXFLAGS += -O3 -march=native -ffp-contract=fast
+
+# Platform-specific optimizations
+UNAME := $(shell uname -s)
+ifeq ($(UNAME), Darwin)
+  # macOS: Enable Apple Accelerate BLAS and LTO
+  PKG_CXXFLAGS += -DEIGEN_USE_BLAS -flto
+  PKG_LIBS += -framework Accelerate -flto
+endif
+
+# For CRAN submission, replace all the above with:
+# PKG_CXXFLAGS = -DEIGEN_NO_DEBUG -DNDEBUG -O2
