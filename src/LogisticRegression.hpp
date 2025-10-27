@@ -16,6 +16,17 @@ private:
     int max_iterations;
     double rel_tolerance; // epsilon
 
+    // Preallocated buffers to reduce per-iteration allocations
+    mutable VectorXd sw; // sqrt(weights)
+    mutable VectorXd z;  // working response
+    mutable MatrixXd Xw; // weighted design
+    mutable VectorXd zw; // weighted response
+
+    // Optional warm start
+    bool has_initial_guess = false;
+    VectorXd beta_initial;
+    VectorXd eta_initial;
+
     // Helper methods
     static inline double plogis_clip(double t);
     double deviance_from_eta(const VectorXd &eta_in) const;
@@ -27,8 +38,16 @@ public:
     LogisticRegression(const MatrixXd &X_in, const VectorXd &y_in,
                        int max_iter = 50, double tol = 1e-8);
 
+    // Overload to avoid creating temporaries when passing block expressions
+    LogisticRegression(const Ref<const MatrixXd> &X_in, const VectorXd &y_in,
+                       int max_iter = 50, double tol = 1e-8);
+
     // Main fitting method
     void fit();
+
+    // Provide an initial guess for beta and eta (linear predictor).
+    // beta0 must have length p, eta0 must have length n and equal X * beta0.
+    void setInitialGuess(const VectorXd &beta0, const VectorXd &eta0);
 
     // Getters
     VectorXd getCoefficients() const;
