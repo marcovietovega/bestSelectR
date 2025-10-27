@@ -12,9 +12,12 @@
 #'   If NULL (default), considers all variables. Values > 20 will trigger
 #'   a warning about computational complexity.
 #' @param top_n Number of top models to return (default: 5, max: 10)
-#' @param metric Selection metric. One of "accuracy", "auc" (default), or "deviance".
+#' @param metric Selection metric. One of "accuracy", "auc" (default), "deviance", "aic", or "bic".
 #'   For "accuracy" and "auc", higher values indicate better models.
-#'   For "deviance", lower values indicate better model fit (better match to data).
+#'   For "deviance", "aic", and "bic", lower values indicate better models.
+#'   AIC (Akaike Information Criterion) = deviance + 2k, where k is the number of parameters.
+#'   BIC (Bayesian Information Criterion) = deviance + k*log(n), where n is the sample size.
+#'   Both AIC and BIC penalize model complexity, with BIC applying a stronger penalty for larger datasets.
 #' @param cross_validation Logical indicating whether to use cross-validation (default: FALSE)
 #' @param cv_folds Number of cross-validation folds (default: 5)
 #' @param cv_repeats Number of cross-validation repeats (default: 1)
@@ -47,7 +50,7 @@ bestSubset <- function(
   y,
   max_variables = NULL,
   top_n = 5,
-  metric = c("auc", "accuracy", "deviance"),
+  metric = c("auc", "accuracy", "deviance", "aic", "bic"),
   cross_validation = FALSE,
   cv_folds = 5,
   cv_repeats = 1,

@@ -86,6 +86,8 @@ List best_subset_selection(
         NumericVector model_accuracy(n_models);
         NumericVector model_auc(n_models);
         NumericVector model_deviance(n_models);
+        NumericVector model_aic(n_models);
+        NumericVector model_bic(n_models);
         IntegerVector n_variables(n_models);
         CharacterVector variable_names(n_models);
 
@@ -94,6 +96,8 @@ List best_subset_selection(
             model_accuracy[i] = best_results[i].getAccuracy();
             model_auc[i] = best_results[i].getAUC();
             model_deviance[i] = best_results[i].getDeviance();
+            model_aic[i] = best_results[i].getAIC();
+            model_bic[i] = best_results[i].getBIC();
 
             std::vector<int> var_indices = best_results[i].getVariableIndices();
 
@@ -131,7 +135,9 @@ List best_subset_selection(
             Named("n_variables") = n_variables,
             Named("accuracy") = model_accuracy,
             Named("auc") = model_auc,
-            Named("deviance") = model_deviance);
+            Named("deviance") = model_deviance,
+            Named("aic") = model_aic,
+            Named("bic") = model_bic);
 
         // Best model coefficients
         VectorXd coeffs = best_model.getModel().getCoefficients();
@@ -155,6 +161,8 @@ List best_subset_selection(
             Named("accuracy") = best_model.getAccuracy(),
             Named("auc") = best_model.getAUC(),
             Named("deviance") = best_model.getDeviance(),
+            Named("aic") = best_model.getAIC(),
+            Named("bic") = best_model.getBIC(),
             Named("n_variables") = best_variables.size());  // Count predictors only, not intercept
 
         // Call information

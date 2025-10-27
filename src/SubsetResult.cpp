@@ -7,13 +7,15 @@ using namespace std;
 
 // Default constructor
 SubsetResult::SubsetResult()
-    : accuracy(0.0), auc(0.0), n_variables(0), is_valid(false)
+    : accuracy(0.0), auc(0.0), aic(0.0), bic(0.0), n_variables(0), is_valid(false)
 {
 }
 
 // Constructor with fitted model and performance metrics
-SubsetResult::SubsetResult(const Model &fitted_model, double acc, double auc_score)
+SubsetResult::SubsetResult(const Model &fitted_model, double acc, double auc_score,
+                           double aic_value, double bic_value)
     : model(fitted_model), accuracy(acc), auc(auc_score),
+      aic(aic_value), bic(bic_value),
       variable_indices(fitted_model.getVariableIndices()),
       n_variables(fitted_model.getNumVariables()), is_valid(true)
 {
@@ -33,7 +35,8 @@ SubsetResult::SubsetResult(const Model &fitted_model, double acc, double auc_sco
 }
 
 // Set result from fitted model and metrics
-void SubsetResult::setResult(const Model &fitted_model, double acc, double auc_score)
+void SubsetResult::setResult(const Model &fitted_model, double acc, double auc_score,
+                             double aic_value, double bic_value)
 {
     if (!fitted_model.isFitted())
     {
@@ -51,6 +54,8 @@ void SubsetResult::setResult(const Model &fitted_model, double acc, double auc_s
     model = fitted_model;
     accuracy = acc;
     auc = auc_score;
+    aic = aic_value;
+    bic = bic_value;
     variable_indices = fitted_model.getVariableIndices();
     n_variables = fitted_model.getNumVariables();
     is_valid = true;
@@ -75,6 +80,16 @@ double SubsetResult::getAUC() const
 double SubsetResult::getDeviance() const
 {
     return model.getDeviance();
+}
+
+double SubsetResult::getAIC() const
+{
+    return aic;
+}
+
+double SubsetResult::getBIC() const
+{
+    return bic;
 }
 
 std::vector<int> SubsetResult::getVariableIndices() const
@@ -113,9 +128,17 @@ double SubsetResult::getScore(const std::string &metric) const
     {
         return model.getDeviance();
     }
+    else if (metric == "aic")
+    {
+        return aic;
+    }
+    else if (metric == "bic")
+    {
+        return bic;
+    }
     else
     {
-        throw std::invalid_argument("Unknown metric: " + metric + ". Use 'accuracy', 'auc', or 'deviance'");
+        throw std::invalid_argument("Unknown metric: " + metric + ". Use 'accuracy', 'auc', 'deviance', 'aic', or 'bic'");
     }
 }
 
@@ -137,7 +160,7 @@ bool SubsetResult::isBetterThan(const SubsetResult &other, const std::string &me
     {
         return this->getScore(metric) > other.getScore(metric); // Higher is better
     }
-    else if (metric == "deviance")
+    else if (metric == "deviance" || metric == "aic" || metric == "bic")
     {
         return this->getScore(metric) < other.getScore(metric); // Lower is better
     }

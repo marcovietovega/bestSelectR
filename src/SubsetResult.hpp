@@ -13,20 +13,26 @@ private:
     Model model;
     double accuracy;
     double auc;
+    double aic;
+    double bic;
     std::vector<int> variable_indices;
     int n_variables;
     bool is_valid;
 
 public:
     SubsetResult();
-    SubsetResult(const Model &fitted_model, double acc, double auc_score);
+    SubsetResult(const Model &fitted_model, double acc, double auc_score,
+                 double aic_value, double bic_value);
 
-    void setResult(const Model &fitted_model, double acc, double auc_score);
+    void setResult(const Model &fitted_model, double acc, double auc_score,
+                   double aic_value, double bic_value);
 
     Model getModel() const;
     double getAccuracy() const;
     double getAUC() const;
     double getDeviance() const;
+    double getAIC() const;
+    double getBIC() const;
     std::vector<int> getVariableIndices() const;
     int getNumVariables() const;
     bool isValid() const;

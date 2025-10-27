@@ -169,8 +169,14 @@ void BestSubsetSelector::fit(int max_vars, int top_n, const std::string &selecti
             double accuracy = PerformanceEvaluator::calculateAccuracy(predictions, y);
             double auc = PerformanceEvaluator::calculateAUC(fitted_probs, y);
 
+            // Calculate AIC and BIC
+            double deviance = model.getDeviance();
+            int n_params = X_subset.cols();
+            double aic_value = PerformanceEvaluator::calculateAIC(deviance, n_params);
+            double bic_value = PerformanceEvaluator::calculateBIC(deviance, n_params, n_observations);
+
             // Create SubsetResult
-            SubsetResult result(model, accuracy, auc);
+            SubsetResult result(model, accuracy, auc, aic_value, bic_value);
             all_results.push_back(result);
         }
         catch (const std::exception &e)
@@ -206,7 +212,7 @@ void BestSubsetSelector::sortResultsByMetric()
                       return a.getScore(metric) > b.getScore(metric);
                   });
     }
-    else if (metric == "deviance")
+    else if (metric == "deviance" || metric == "aic" || metric == "bic")
     {
         // Lower is better - sort in ascending order
         std::sort(all_results.begin(), all_results.end(),
@@ -234,9 +240,11 @@ void BestSubsetSelector::setTopNModels(int top_n)
 
 void BestSubsetSelector::setMetric(const std::string &selection_metric)
 {
-    if (selection_metric != "accuracy" && selection_metric != "auc" && selection_metric != "deviance")
+    if (selection_metric != "accuracy" && selection_metric != "auc" &&
+        selection_metric != "deviance" && selection_metric != "aic" &&
+        selection_metric != "bic")
     {
-        throw std::invalid_argument("Metric must be 'accuracy', 'auc', or 'deviance'");
+        throw std::invalid_argument("Metric must be 'accuracy', 'auc', 'deviance', 'aic', or 'bic'");
     }
     metric = selection_metric;
 }
@@ -301,7 +309,8 @@ SubsetResult BestSubsetSelector::getBestModel(const std::string &selection_metri
                       return a.getScore(selection_metric) > b.getScore(selection_metric);
                   });
     }
-    else if (selection_metric == "deviance")
+    else if (selection_metric == "deviance" || selection_metric == "aic" ||
+             selection_metric == "bic")
     {
         std::sort(results_copy.begin(), results_copy.end(),
                   [&selection_metric](const SubsetResult &a, const SubsetResult &b)
@@ -478,13 +487,27 @@ void BestSubsetSelector::fitWithCrossValidation(int max_vars)
                 // Note: CV deviance is stored in cv_performance but not used here
                 // SubsetResult will get deviance from model.getDeviance()
             }
+            else if (metric == "aic" || metric == "bic")
+            {
+                // Use CV AIC/BIC for ranking, calculate accuracy and AUC on final model
+                final_accuracy = PerformanceEvaluator::calculateAccuracy(predictions, y);
+                final_auc = PerformanceEvaluator::calculateAUC(fitted_probs, y);
+                // Note: CV AIC/BIC is stored in cv_performance but not used here
+                // SubsetResult will get AIC/BIC from calculations below
+            }
             else
             {
                 throw std::invalid_argument("Unsupported metric: " + metric);
             }
 
+            // Calculate AIC and BIC
+            double deviance = model.getDeviance();
+            int n_params = indices_for_model.size();
+            double aic_value = PerformanceEvaluator::calculateAIC(deviance, n_params);
+            double bic_value = PerformanceEvaluator::calculateBIC(deviance, n_params, n_observations);
+
             // Create SubsetResult
-            SubsetResult result(model, final_accuracy, final_auc);
+            SubsetResult result(model, final_accuracy, final_auc, aic_value, bic_value);
             all_results.push_back(result);
         }
         catch (const std::exception &e)
