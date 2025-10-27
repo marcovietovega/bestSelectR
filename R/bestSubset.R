@@ -27,6 +27,9 @@
 #' @param n_threads Number of threads for parallel processing (default: NULL for auto-detection).
 #'   Use 1 for serial execution, or specify a positive integer for a specific thread count.
 #'   Set to NULL to automatically use all available cores minus 1.
+#' @param omp_schedule Optional OpenMP schedule string to tune parallel work-stealing at runtime
+#'   when n_threads > 1. Examples: "guided,32", "dynamic,64". If NULL (default), the
+#'   system environment (OMP_SCHEDULE) is used as-is. This is ignored when n_threads = 1.
 #'
 #' @details
 #' Selection is performed by evaluating only the chosen metric (plus deviance) for every
@@ -72,7 +75,8 @@ bestSubset <- function(
   cv_repeats = 1,
   cv_seed = NULL,
   na.action = na.fail,
-  n_threads = NULL
+  n_threads = NULL,
+  omp_schedule = NULL
 ) {
   call <- match.call()
 
@@ -104,7 +108,13 @@ bestSubset <- function(
 
   detect_perfect_separation(X_clean, y_clean)
 
-  warn_computational_complexity(ncol(X_clean), validated_params$max_variables)
+  # Check computational complexity and enforce hard limits
+  actual_max_vars <- if (is.null(validated_params$max_variables)) {
+    ncol(X_clean)
+  } else {
+    min(validated_params$max_variables, ncol(X_clean))
+  }
+  warn_computational_complexity(ncol(X_clean), actual_max_vars)
 
   max_variables <- validated_params$max_variables
   top_n <- validated_params$top_n
@@ -147,10 +157,25 @@ bestSubset <- function(
     # Warn if n_threads exceeds available cores
     n_cores_available <- parallel::detectCores()
     if (!is.na(n_cores_available) && n_threads > n_cores_available) {
-      warning("n_threads (", n_threads, ") exceeds available CPU cores (",
-              n_cores_available, "). This may reduce performance.",
-              call. = FALSE)
+      warning(
+        "n_threads (",
+        n_threads,
+        ") exceeds available CPU cores (",
+        n_cores_available,
+        "). This may reduce performance.",
+        call. = FALSE
+      )
     }
+  }
+
+  # Apply optional OpenMP schedule override (must be set before entering C++ parallel regions)
+  if (!is.null(omp_schedule)) {
+    if (!is.character(omp_schedule) || length(omp_schedule) != 1L) {
+      stop(
+        "omp_schedule must be a single character string like 'guided,32' or NULL"
+      )
+    }
+    Sys.setenv(OMP_SCHEDULE = omp_schedule)
   }
 
   # Calculate number of subsets to evaluate
@@ -158,7 +183,9 @@ bestSubset <- function(
   if (max_variables == -1 || max_variables > n_predictors) {
     n_subsets <- 2^n_predictors - 1
   } else {
-    n_subsets <- sum(sapply(1:max_variables, function(k) choose(n_predictors, k)))
+    n_subsets <- sum(sapply(1:max_variables, function(k) {
+      choose(n_predictors, k)
+    }))
   }
 
   # Print computational settings
@@ -168,6 +195,11 @@ bestSubset <- function(
   # We approximate this by checking if n_threads > 1 was accepted
   if (n_threads > 1) {
     cat("  OpenMP: Enabled\n")
+    # Show schedule if available
+    sch <- Sys.getenv("OMP_SCHEDULE", unset = NA_character_)
+    if (!is.na(sch) && nzchar(sch)) {
+      cat("  OMP_SCHEDULE:", sch, "\n")
+    }
   } else {
     cat("  OpenMP: Serial mode (1 thread)\n")
   }
