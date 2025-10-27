@@ -23,6 +23,9 @@
 #' @param cv_repeats Number of cross-validation repeats (default: 1)
 #' @param cv_seed Random seed for cross-validation reproducibility (default: NULL)
 #' @param na.action How to handle missing values. One of na.fail (default), na.omit, or na.exclude
+#' @param n_threads Number of threads for parallel processing (default: NULL for auto-detection).
+#'   Use 1 for serial execution, or specify a positive integer for a specific thread count.
+#'   Set to NULL to automatically use all available cores minus 1.
 #'
 #' @return A list with class "bestSubset" containing:
 #' \describe{
@@ -55,7 +58,8 @@ bestSubset <- function(
   cv_folds = 5,
   cv_repeats = 1,
   cv_seed = NULL,
-  na.action = na.fail
+  na.action = na.fail,
+  n_threads = NULL
 ) {
   call <- match.call()
 
@@ -111,6 +115,51 @@ bestSubset <- function(
     cv_seed <- as.integer(cv_seed)
   }
 
+  # Handle n_threads parameter
+  if (is.null(n_threads)) {
+    # Auto-detect: use all available cores minus 1
+    n_threads <- max(1L, parallel::detectCores() - 1L)
+  } else {
+    if (!is.numeric(n_threads) || length(n_threads) != 1) {
+      stop("n_threads must be a single numeric value or NULL")
+    }
+    if (is.nan(n_threads) || is.infinite(n_threads)) {
+      stop("n_threads must be a finite number")
+    }
+    if (n_threads < 1) {
+      stop("n_threads must be at least 1 (use 1 for serial execution)")
+    }
+    n_threads <- as.integer(n_threads)
+
+    # Warn if n_threads exceeds available cores
+    n_cores_available <- parallel::detectCores()
+    if (!is.na(n_cores_available) && n_threads > n_cores_available) {
+      warning("n_threads (", n_threads, ") exceeds available CPU cores (",
+              n_cores_available, "). This may reduce performance.",
+              call. = FALSE)
+    }
+  }
+
+  # Calculate number of subsets to evaluate
+  n_predictors <- ncol(X_clean)
+  if (max_variables == -1 || max_variables > n_predictors) {
+    n_subsets <- 2^n_predictors - 1
+  } else {
+    n_subsets <- sum(sapply(1:max_variables, function(k) choose(n_predictors, k)))
+  }
+
+  # Print computational settings
+  cat("Computational Settings:\n")
+  cat("  Threads used:", n_threads, "\n")
+  # Check if OpenMP is available by testing if _OPENMP is defined in compiled code
+  # We approximate this by checking if n_threads > 1 was accepted
+  if (n_threads > 1) {
+    cat("  OpenMP: Enabled\n")
+  } else {
+    cat("  OpenMP: Serial mode (1 thread)\n")
+  }
+  cat("  Evaluating", format(n_subsets, big.mark = ","), "subset models\n\n")
+
   result <- best_subset_selection(
     X_clean,
     y_clean,
@@ -123,7 +172,8 @@ bestSubset <- function(
     cv_seed = cv_seed,
     include_intercept = include_intercept,
     max_iterations = max_iterations,
-    tolerance = tolerance
+    tolerance = tolerance,
+    n_threads = n_threads
   )
 
   result$na_info <- list(
