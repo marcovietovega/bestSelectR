@@ -15,14 +15,30 @@
 #' @param metric Selection metric. One of "accuracy", "auc" (default), "deviance", "aic", or "bic".
 #'   For "accuracy" and "auc", higher values indicate better models.
 #'   For "deviance", "aic", and "bic", lower values indicate better models.
-#'   AIC (Akaike Information Criterion) = deviance + 2k, where k is the number of parameters.
-#'   BIC (Bayesian Information Criterion) = deviance + k*log(n), where n is the sample size.
-#'   Both AIC and BIC penalize model complexity, with BIC applying a stronger penalty for larger datasets.
+#'   AIC (Akaike Information Criterion) = deviance + 2k, and BIC (Bayesian Information Criterion)
+#'   = deviance + k*log(n), where n is the sample size and k is the number of predictors only
+#'   (the intercept is not penalized). Both AIC and BIC penalize model complexity, with BIC
+#'   applying a stronger penalty for larger datasets.
 #' @param cross_validation Logical indicating whether to use cross-validation (default: FALSE)
 #' @param cv_folds Number of cross-validation folds (default: 5)
 #' @param cv_repeats Number of cross-validation repeats (default: 1)
 #' @param cv_seed Random seed for cross-validation reproducibility (default: NULL)
 #' @param na.action How to handle missing values. One of na.fail (default), na.omit, or na.exclude
+#' @param n_threads Number of threads for parallel processing (default: NULL for auto-detection).
+#'   Use 1 for serial execution, or specify a positive integer for a specific thread count.
+#'   Set to NULL to automatically use all available cores minus 1.
+#'
+#' @details
+#' Selection is performed by evaluating only the chosen metric (plus deviance) for every
+#' candidate subset, then sorting models by that metric and keeping the top_n models. Full
+#' metric values for all measures are computed only for the single best model after selection.
+#'
+#' Cross-validation affects selection differently depending on the metric:
+#' - For "accuracy" and "auc", the ranking uses cross-validated averages when
+#'   `cross_validation = TRUE`.
+#' - For "deviance", "aic", and "bic", the ranking always uses the full-data values even when
+#'   `cross_validation = TRUE`. In these cases CV is not used to choose the subset but can still be
+#'   used downstream for model assessment if desired.
 #'
 #' @return A list with class "bestSubset" containing:
 #' \describe{
@@ -55,7 +71,8 @@ bestSubset <- function(
   cv_folds = 5,
   cv_repeats = 1,
   cv_seed = NULL,
-  na.action = na.fail
+  na.action = na.fail,
+  n_threads = NULL
 ) {
   call <- match.call()
 
@@ -87,7 +104,20 @@ bestSubset <- function(
 
   detect_perfect_separation(X_clean, y_clean)
 
-  warn_computational_complexity(ncol(X_clean), validated_params$max_variables)
+  if (!is.null(validated_params$max_variables) && validated_params$max_variables > 60) {
+    stop(paste0(
+      "max_variables cannot exceed 60.\n",
+      "Reason: Best subset selection beyond 60 variables is computationally infeasible.\n",
+      "Solution: Set max_variables <= 60, or use regularization methods (LASSO, elastic net)."
+    ), call. = FALSE)
+  }
+
+  actual_max_vars <- if (is.null(validated_params$max_variables)) {
+    ncol(X_clean)
+  } else {
+    min(validated_params$max_variables, ncol(X_clean))
+  }
+  warn_computational_complexity(ncol(X_clean), actual_max_vars)
 
   max_variables <- validated_params$max_variables
   top_n <- validated_params$top_n
@@ -111,6 +141,63 @@ bestSubset <- function(
     cv_seed <- as.integer(cv_seed)
   }
 
+  # Handle n_threads parameter
+  if (is.null(n_threads)) {
+    # Auto-detect: use all available cores minus 1
+    n_threads <- max(1L, parallel::detectCores() - 1L)
+  } else {
+    if (!is.numeric(n_threads) || length(n_threads) != 1) {
+      stop("n_threads must be a single numeric value or NULL")
+    }
+    if (is.nan(n_threads) || is.infinite(n_threads)) {
+      stop("n_threads must be a finite number")
+    }
+    if (n_threads < 1) {
+      stop("n_threads must be at least 1 (use 1 for serial execution)")
+    }
+    n_threads <- as.integer(n_threads)
+
+    # Warn if n_threads exceeds available cores
+    n_cores_available <- parallel::detectCores()
+    if (!is.na(n_cores_available) && n_threads > n_cores_available) {
+      warning(
+        "n_threads (",
+        n_threads,
+        ") exceeds available CPU cores (",
+        n_cores_available,
+        "). This may reduce performance.",
+        call. = FALSE
+      )
+    }
+  }
+
+  # Calculate number of subsets to evaluate
+  n_predictors <- ncol(X_clean)
+  if (max_variables == -1 || max_variables > n_predictors) {
+    n_subsets <- 2^n_predictors - 1
+  } else {
+    n_subsets <- sum(sapply(1:max_variables, function(k) {
+      choose(n_predictors, k)
+    }))
+  }
+
+  # Print computational settings
+  cat("Computational Settings:\n")
+  cat("  Threads used:", n_threads, "\n")
+  # Check if OpenMP is available by testing if _OPENMP is defined in compiled code
+  # We approximate this by checking if n_threads > 1 was accepted
+  if (n_threads > 1) {
+    cat("  OpenMP: Enabled\n")
+    # Show schedule if available
+    sch <- Sys.getenv("OMP_SCHEDULE", unset = NA_character_)
+    if (!is.na(sch) && nzchar(sch)) {
+      cat("  OMP_SCHEDULE:", sch, "\n")
+    }
+  } else {
+    cat("  OpenMP: Serial mode (1 thread)\n")
+  }
+  cat("  Evaluating", format(n_subsets, big.mark = ","), "subset models\n\n")
+
   result <- best_subset_selection(
     X_clean,
     y_clean,
@@ -123,7 +210,8 @@ bestSubset <- function(
     cv_seed = cv_seed,
     include_intercept = include_intercept,
     max_iterations = max_iterations,
-    tolerance = tolerance
+    tolerance = tolerance,
+    n_threads = n_threads
   )
 
   result$na_info <- list(

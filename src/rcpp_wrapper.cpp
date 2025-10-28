@@ -1,5 +1,8 @@
 #include <Rcpp.h>
 #include <RcppEigen.h>
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 #include "BestSubsetSelector.hpp"
 #include "PerformanceEvaluator.hpp"
 #include "LogisticRegression.hpp"
@@ -26,7 +29,8 @@ List best_subset_selection(
     int cv_seed = -1,
     bool include_intercept = true,
     int max_iterations = 100,
-    double tolerance = 1e-6)
+    double tolerance = 1e-6,
+    int n_threads = -1)
 {
     try
     {
@@ -60,6 +64,21 @@ List best_subset_selection(
             max_variables = X_eigen.cols();
         }
 
+// Configure OpenMP threads
+#ifdef _OPENMP
+        int original_threads = omp_get_max_threads();
+        if (n_threads > 0)
+        {
+            omp_set_num_threads(n_threads);
+        }
+        else if (n_threads == 0)
+        {
+            // n_threads = 0 means serial execution
+            omp_set_num_threads(1);
+        }
+// n_threads = -1 (default) uses OpenMP default (all available threads)
+#endif
+
         // Create BestSubsetSelector
         BestSubsetSelector selector(X_eigen, y_eigen, include_intercept);
 
@@ -74,8 +93,25 @@ List best_subset_selection(
             selector.setCrossValidation(true, cv_folds, cv_repeats, cv_seed);
         }
 
+        // Inform selector of configured threads to enable serial warm starts when n_threads == 1
+        int selector_threads = 1;
+#ifdef _OPENMP
+        if (n_threads > 0)
+            selector_threads = n_threads;
+        else if (n_threads == -1)
+            selector_threads = omp_get_max_threads();
+        else
+            selector_threads = 1;
+#endif
+        selector.setNumThreads(selector_threads);
+
         // Fit the model
         selector.fit();
+
+// Restore original thread count
+#ifdef _OPENMP
+        omp_set_num_threads(original_threads);
+#endif
 
         // Get results
         std::vector<SubsetResult> best_results = selector.getBestResults();
@@ -122,7 +158,7 @@ List best_subset_selection(
                     var_str = "Intercept";
             }
 
-            n_variables[i] = n_vars;  // Count predictors only, not intercept
+            n_variables[i] = n_vars; // Count predictors only, not intercept
             variable_names[i] = var_str;
         }
 
@@ -163,7 +199,7 @@ List best_subset_selection(
             Named("deviance") = best_model.getDeviance(),
             Named("aic") = best_model.getAIC(),
             Named("bic") = best_model.getBIC(),
-            Named("n_variables") = best_variables.size());  // Count predictors only, not intercept
+            Named("n_variables") = best_variables.size()); // Count predictors only, not intercept
 
         // Call information
         List call_info = List::create(

@@ -111,8 +111,18 @@ test_that("function accepts data.frame inputs", {
   x_df <- as.data.frame(data$X)
 
   result <- bestSubset(x_df, data$y, top_n = 2)
-  expect_true(all(result$models$accuracy >= 0 & result$models$accuracy <= 1))
-  expect_true(all(result$models$auc >= 0 & result$models$auc <= 1))
+  # Best model should have valid accuracy/AUC, others may be NA (optimization)
+  expect_true(result$best_model$accuracy >= 0 & result$best_model$accuracy <= 1)
+  expect_true(result$best_model$auc >= 0 & result$best_model$auc <= 1)
+  # Check that non-NA values are valid
+  expect_true(all(
+    result$models$accuracy[!is.na(result$models$accuracy)] >= 0 &
+      result$models$accuracy[!is.na(result$models$accuracy)] <= 1
+  ))
+  expect_true(all(
+    result$models$auc[!is.na(result$models$auc)] >= 0 &
+      result$models$auc[!is.na(result$models$auc)] <= 1
+  ))
 })
 
 test_that("function handles edge case: single variable", {
@@ -143,8 +153,15 @@ test_that("models data frame has correct structure", {
   result <- bestSubset(data$X, data$y, top_n = 3)
 
   models_df <- result$models
-  expect_true(all(models_df$auc >= 0 & models_df$auc <= 1))
-  expect_true(all(models_df$accuracy >= 0 & models_df$accuracy <= 1))
+  # Check non-NA values are valid (optimization may leave some as NA)
+  expect_true(all(
+    models_df$auc[!is.na(models_df$auc)] >= 0 &
+      models_df$auc[!is.na(models_df$auc)] <= 1
+  ))
+  expect_true(all(
+    models_df$accuracy[!is.na(models_df$accuracy)] >= 0 &
+      models_df$accuracy[!is.na(models_df$accuracy)] <= 1
+  ))
   expect_true(all(models_df$deviance >= 0))
 })
 
@@ -160,8 +177,10 @@ test_that("cross-validation functionality works", {
   )
 
   expect_true(result_cv$call_info$use_cv)
+  # Check non-NA values are valid (optimization may leave some as NA)
   expect_true(all(
-    result_cv$models$accuracy >= 0 & result_cv$models$accuracy <= 1
+    result_cv$models$accuracy[!is.na(result_cv$models$accuracy)] >= 0 &
+      result_cv$models$accuracy[!is.na(result_cv$models$accuracy)] <= 1
   ))
   expect_gte(nrow(result_cv$models), 1)
 })
@@ -183,7 +202,13 @@ test_that("cv_folds and cv_repeats reject NaN and Inf", {
 
   # cv_repeats with Inf
   expect_error(
-    bestSubset(data$X, data$y, cross_validation = TRUE, cv_folds = 5, cv_repeats = Inf),
+    bestSubset(
+      data$X,
+      data$y,
+      cross_validation = TRUE,
+      cv_folds = 5,
+      cv_repeats = Inf
+    ),
     "cv_repeats must be a finite number"
   )
 })
@@ -193,13 +218,25 @@ test_that("cv_seed validates numeric input", {
 
   # Non-numeric string
   expect_error(
-    bestSubset(data$X, data$y, cross_validation = TRUE, cv_folds = 3, cv_seed = "abc"),
+    bestSubset(
+      data$X,
+      data$y,
+      cross_validation = TRUE,
+      cv_folds = 3,
+      cv_seed = "abc"
+    ),
     "cv_seed must be a single numeric value or NULL"
   )
 
   # NaN
   expect_error(
-    bestSubset(data$X, data$y, cross_validation = TRUE, cv_folds = 3, cv_seed = NaN),
+    bestSubset(
+      data$X,
+      data$y,
+      cross_validation = TRUE,
+      cv_folds = 3,
+      cv_seed = NaN
+    ),
     "cv_seed must be a finite number or NULL"
   )
 })
@@ -208,7 +245,13 @@ test_that("cv_folds > 20 triggers warning", {
   data <- create_test_data()
 
   expect_warning(
-    bestSubset(data$X, data$y, cross_validation = TRUE, cv_folds = 25, cv_seed = 123),
+    bestSubset(
+      data$X,
+      data$y,
+      cross_validation = TRUE,
+      cv_folds = 25,
+      cv_seed = 123
+    ),
     "cv_folds = 25 may result in very slow cross-validation"
   )
 })
@@ -281,7 +324,6 @@ test_that("categorical data throws helpful error message", {
     bestSubset(df, y),
     "bestSelectR requires numeric data"
   )
-
 
   X_processed <- model.matrix(~ . - 1, data = df)
   expect_no_error(bestSubset(X_processed, y, top_n = 2))
@@ -735,8 +777,13 @@ test_that("deviance matches glm calculation", {
 
   # Fit with bestSubset (all variables)
   # With 3 variables, there are 2^3-1 = 7 possible models
-  bs_result <- bestSubset(data$X, data$y, max_variables = 3,
-                          metric = "deviance", top_n = 5)
+  bs_result <- bestSubset(
+    data$X,
+    data$y,
+    max_variables = 3,
+    metric = "deviance",
+    top_n = 5
+  )
 
   # Find full model (all 3 variables)
   full_model <- bs_result$models[bs_result$models$n_variables == 3, ]
@@ -755,12 +802,15 @@ test_that("deviance with cross-validation works correctly", {
   # Use default n=50 for CV to ensure sufficient data per fold
   data <- create_test_data()
 
-  result_cv <- bestSubset(data$X, data$y,
-                          metric = "deviance",
-                          cross_validation = TRUE,
-                          cv_folds = 3,
-                          cv_seed = 123,
-                          top_n = 2)
+  result_cv <- bestSubset(
+    data$X,
+    data$y,
+    metric = "deviance",
+    cross_validation = TRUE,
+    cv_folds = 3,
+    cv_seed = 123,
+    top_n = 2
+  )
 
   # Check CV was used
   expect_true(result_cv$call_info$use_cv)
@@ -777,19 +827,25 @@ test_that("deviance CV results are reproducible with seed", {
   # Use default n=50 for CV to ensure sufficient data per fold
   data <- create_test_data()
 
-  result1 <- bestSubset(data$X, data$y,
-                        metric = "deviance",
-                        cross_validation = TRUE,
-                        cv_folds = 3,
-                        cv_seed = 42,
-                        top_n = 1)
+  result1 <- bestSubset(
+    data$X,
+    data$y,
+    metric = "deviance",
+    cross_validation = TRUE,
+    cv_folds = 3,
+    cv_seed = 42,
+    top_n = 1
+  )
 
-  result2 <- bestSubset(data$X, data$y,
-                        metric = "deviance",
-                        cross_validation = TRUE,
-                        cv_folds = 3,
-                        cv_seed = 42,
-                        top_n = 1)
+  result2 <- bestSubset(
+    data$X,
+    data$y,
+    metric = "deviance",
+    cross_validation = TRUE,
+    cv_folds = 3,
+    cv_seed = 42,
+    top_n = 1
+  )
 
   # Results should be identical with same seed
   expect_equal(result1$models$deviance, result2$models$deviance)
@@ -803,7 +859,13 @@ test_that("deviance CV results are reproducible with seed", {
 test_that("AIC metric works correctly", {
   data <- create_test_data(n = 40, p = 4)
 
-  result <- bestSubset(data$X, data$y, max_variables = 3, top_n = 5, metric = "aic")
+  result <- bestSubset(
+    data$X,
+    data$y,
+    max_variables = 3,
+    top_n = 5,
+    metric = "aic"
+  )
 
   # Check result structure
   expect_s3_class(result, "bestSubset")
@@ -824,7 +886,13 @@ test_that("AIC metric works correctly", {
 test_that("BIC metric works correctly", {
   data <- create_test_data(n = 40, p = 4)
 
-  result <- bestSubset(data$X, data$y, max_variables = 3, top_n = 5, metric = "bic")
+  result <- bestSubset(
+    data$X,
+    data$y,
+    max_variables = 3,
+    top_n = 5,
+    metric = "bic"
+  )
 
   # Check result structure
   expect_s3_class(result, "bestSubset")
@@ -849,20 +917,34 @@ test_that("AIC and BIC relationship holds", {
 
   # For n > 7, BIC should penalize more than AIC (BIC > AIC for same model)
   # Since n = 50, log(n) ≈ 3.91 > 2
-  expect_true(all(result$models$bic > result$models$aic))
+  # Best model has all metrics calculated
   expect_true(result$best_model$bic > result$best_model$aic)
+  # Check relationship for non-NA values (optimization may leave some NA)
+  non_na_idx <- !is.na(result$models$bic) & !is.na(result$models$aic)
+  if (any(non_na_idx)) {
+    expect_true(all(
+      result$models$bic[non_na_idx] > result$models$aic[non_na_idx]
+    ))
+  }
 })
 
 test_that("AIC values are calculated correctly", {
   data <- create_test_data(n = 30, p = 3)
 
-  result <- bestSubset(data$X, data$y, max_variables = 2, top_n = 3)
+  # Use metric="aic" to ensure AIC is calculated
+  result <- bestSubset(
+    data$X,
+    data$y,
+    max_variables = 2,
+    top_n = 3,
+    metric = "aic"
+  )
 
-  # AIC = deviance + 2*k
+  # AIC = deviance + 2*k, where k counts predictors only (intercept not penalized)
   # For each model, verify the formula
   for (i in 1:nrow(result$models)) {
-    n_params <- result$models$n_variables[i] + 1  # +1 for intercept
-    expected_aic <- result$models$deviance[i] + 2 * n_params
+    k <- result$models$n_variables[i] # predictors only; intercept not penalized
+    expected_aic <- result$models$deviance[i] + 2 * k
     expect_equal(result$models$aic[i], expected_aic, tolerance = 1e-10)
   }
 })
@@ -870,13 +952,20 @@ test_that("AIC values are calculated correctly", {
 test_that("BIC values are calculated correctly", {
   data <- create_test_data(n = 30, p = 3)
 
-  result <- bestSubset(data$X, data$y, max_variables = 2, top_n = 3)
+  # Use metric="bic" to ensure BIC is calculated
+  result <- bestSubset(
+    data$X,
+    data$y,
+    max_variables = 2,
+    top_n = 3,
+    metric = "bic"
+  )
 
-  # BIC = deviance + k*log(n)
+  # BIC = deviance + k*log(n), where k counts predictors only (intercept not penalized)
   n_obs <- nrow(data$X)
   for (i in 1:nrow(result$models)) {
-    n_params <- result$models$n_variables[i] + 1  # +1 for intercept
-    expected_bic <- result$models$deviance[i] + n_params * log(n_obs)
+    k <- result$models$n_variables[i] # predictors only; intercept not penalized
+    expected_bic <- result$models$deviance[i] + k * log(n_obs)
     expect_equal(result$models$bic[i], expected_bic, tolerance = 1e-10)
   }
 })
@@ -884,74 +973,105 @@ test_that("BIC values are calculated correctly", {
 test_that("AIC metric works with cross-validation", {
   data <- create_test_data(n = 50, p = 3)
 
-  result <- bestSubset(data$X, data$y,
-                      max_variables = 2,
-                      top_n = 3,
-                      metric = "aic",
-                      cross_validation = TRUE,
-                      cv_folds = 5,
-                      cv_seed = 123)
+  result <- bestSubset(
+    data$X,
+    data$y,
+    max_variables = 2,
+    top_n = 3,
+    metric = "aic",
+    cross_validation = TRUE,
+    cv_folds = 5,
+    cv_seed = 123
+  )
 
   # Check that results are valid
   expect_s3_class(result, "bestSubset")
   expect_true(all(result$models$aic > 0))
-  expect_true(all(diff(result$models$aic) >= 0))  # Sorted ascending
+  expect_true(all(diff(result$models$aic) >= 0)) # Sorted ascending
 })
 
 test_that("BIC metric works with cross-validation", {
   data <- create_test_data(n = 50, p = 3)
 
-  result <- bestSubset(data$X, data$y,
-                      max_variables = 2,
-                      top_n = 3,
-                      metric = "bic",
-                      cross_validation = TRUE,
-                      cv_folds = 5,
-                      cv_seed = 123)
+  result <- bestSubset(
+    data$X,
+    data$y,
+    max_variables = 2,
+    top_n = 3,
+    metric = "bic",
+    cross_validation = TRUE,
+    cv_folds = 5,
+    cv_seed = 123
+  )
 
   # Check that results are valid
   expect_s3_class(result, "bestSubset")
   expect_true(all(result$models$bic > 0))
-  expect_true(all(diff(result$models$bic) >= 0))  # Sorted ascending
+  expect_true(all(diff(result$models$bic) >= 0)) # Sorted ascending
 })
 
 test_that("AIC and BIC metrics produce different model rankings", {
   data <- create_test_data(n = 60, p = 4)
 
-  result_aic <- bestSubset(data$X, data$y, max_variables = 3, top_n = 5, metric = "aic")
-  result_bic <- bestSubset(data$X, data$y, max_variables = 3, top_n = 5, metric = "bic")
+  result_aic <- bestSubset(
+    data$X,
+    data$y,
+    max_variables = 3,
+    top_n = 5,
+    metric = "aic"
+  )
+  result_bic <- bestSubset(
+    data$X,
+    data$y,
+    max_variables = 3,
+    top_n = 5,
+    metric = "bic"
+  )
 
   # BIC penalizes complexity more, so may select simpler models
   # The rankings might differ
   expect_true(length(result_aic$models$aic) > 0)
   expect_true(length(result_bic$models$bic) > 0)
 
-  # AIC and BIC should generally prefer different models
-  # (though not always - depends on data)
-  expect_true(all(result_aic$models$bic > result_aic$models$aic))
-  expect_true(all(result_bic$models$bic > result_bic$models$aic))
+  # Best model should have all metrics calculated
+  expect_true(is.finite(result_aic$best_model$aic))
+  expect_true(is.finite(result_aic$best_model$bic))
+  expect_true(is.finite(result_bic$best_model$aic))
+  expect_true(is.finite(result_bic$best_model$bic))
+
+  # Other models (rank 2+) should only have selected metric
+  if (nrow(result_aic$models) > 1) {
+    expect_true(all(is.na(result_aic$models$bic[-1])))
+    expect_true(all(is.na(result_bic$models$aic[-1])))
+  }
 })
 
 test_that("AIC/BIC work with repeated CV", {
   data <- create_test_data(n = 40, p = 3)
 
-  result_aic <- bestSubset(data$X, data$y,
-                          max_variables = 2,
-                          top_n = 3,
-                          metric = "aic",
-                          cross_validation = TRUE,
-                          cv_folds = 3,
-                          cv_repeats = 2,
-                          cv_seed = 456)
+  result_aic <- bestSubset(
+    data$X,
+    data$y,
+    max_variables = 2,
+    top_n = 3,
+    metric = "aic",
+    cross_validation = TRUE,
+    cv_folds = 3,
+    cv_repeats = 2,
+    cv_seed = 456
+  )
 
-  result_bic <- bestSubset(data$X, data$y,
-                          max_variables = 2,
-                          top_n = 3,
-                          metric = "bic",
-                          cross_validation = TRUE,
-                          cv_folds = 3,
-                          cv_repeats = 2,
-                          cv_seed = 456)
+  result_bic <- bestSubset(
+    data$X,
+    data$y,
+    max_variables = 2,
+    top_n = 3,
+    metric = "bic",
+    cross_validation = TRUE,
+    cv_folds = 3,
+    cv_repeats = 2,
+    cv_seed = 456
+  )
 
   expect_s3_class(result_aic, "bestSubset")
   expect_s3_class(result_bic, "bestSubset")
@@ -959,20 +1079,235 @@ test_that("AIC/BIC work with repeated CV", {
   expect_true(all(result_bic$models$bic > 0))
 })
 
-test_that("AIC and BIC are included in all output", {
+test_that("Best model has all metrics, other models have only selected metric", {
   data <- create_test_data(n = 30, p = 3)
 
-  # Even when using other metrics, AIC and BIC should be calculated
-  result <- bestSubset(data$X, data$y, max_variables = 2, top_n = 3, metric = "auc")
+  # When using AUC metric, only AUC calculated during search (optimization)
+  # But best model gets all metrics calculated at the end
+  result <- bestSubset(
+    data$X,
+    data$y,
+    max_variables = 2,
+    top_n = 3,
+    metric = "auc"
+  )
 
+  # All columns should exist in the output
   expect_true("aic" %in% names(result$models))
   expect_true("bic" %in% names(result$models))
+  expect_true("accuracy" %in% names(result$models))
+  expect_true("auc" %in% names(result$models))
+
+  # Best model should have ALL metrics calculated
   expect_true("aic" %in% names(result$best_model))
   expect_true("bic" %in% names(result$best_model))
+  expect_true("accuracy" %in% names(result$best_model))
+  expect_true("auc" %in% names(result$best_model))
+  expect_true(is.finite(result$best_model$aic))
+  expect_true(is.finite(result$best_model$bic))
+  expect_true(is.finite(result$best_model$accuracy))
+  expect_true(is.finite(result$best_model$auc))
 
-  # All values should be finite and positive
-  expect_true(all(is.finite(result$models$aic)))
-  expect_true(all(is.finite(result$models$bic)))
-  expect_true(all(result$models$aic > 0))
-  expect_true(all(result$models$bic > 0))
+  # Other models (rank 2+) should have NA for non-selected metrics
+  if (nrow(result$models) > 1) {
+    expect_true(all(is.na(result$models$aic[-1])))
+    expect_true(all(is.na(result$models$bic[-1])))
+    expect_true(all(is.na(result$models$accuracy[-1])))
+  }
+})
+
+# ============================================================================
+# Parallel Processing Tests
+# ============================================================================
+
+test_that("Parallel gives same results as serial", {
+  set.seed(123)
+  data <- create_test_data(n = 50, p = 6)
+
+  # Serial execution
+  result_serial <- bestSubset(
+    data$X,
+    data$y,
+    max_variables = 5,
+    top_n = 3,
+    n_threads = 1
+  )
+
+  # Parallel execution (2 threads)
+  result_parallel <- bestSubset(
+    data$X,
+    data$y,
+    max_variables = 5,
+    top_n = 3,
+    n_threads = 2
+  )
+
+  # Best model coefficients should be nearly identical
+  # (minor differences due to floating-point arithmetic order in parallel)
+  expect_equal(
+    result_serial$best_model$coefficients,
+    result_parallel$best_model$coefficients,
+    tolerance = 1e-6
+  )
+
+  # Best model metrics should be identical
+  expect_equal(
+    result_serial$best_model$accuracy,
+    result_parallel$best_model$accuracy,
+    tolerance = 1e-10
+  )
+
+  expect_equal(
+    result_serial$best_model$auc,
+    result_parallel$best_model$auc,
+    tolerance = 1e-10
+  )
+})
+
+test_that("Parallel CV gives same results as serial CV", {
+  set.seed(123)
+  data <- create_test_data(n = 60, p = 5)
+
+  # Serial CV
+  result_serial <- bestSubset(
+    data$X,
+    data$y,
+    cross_validation = TRUE,
+    cv_folds = 3,
+    cv_seed = 42,
+    max_variables = 4,
+    top_n = 2,
+    n_threads = 1
+  )
+
+  # Parallel CV
+  result_parallel <- bestSubset(
+    data$X,
+    data$y,
+    cross_validation = TRUE,
+    cv_folds = 3,
+    cv_seed = 42,
+    max_variables = 4,
+    top_n = 2,
+    n_threads = 2
+  )
+
+  # Results should be identical with same seed
+  expect_equal(
+    result_serial$best_model$coefficients,
+    result_parallel$best_model$coefficients,
+    tolerance = 1e-10
+  )
+})
+
+test_that("Multiple parallel runs give consistent results", {
+  # Run same analysis multiple times to check for race conditions
+  results <- lapply(1:5, function(i) {
+    set.seed(123) # Same seed for all runs
+    data <- create_test_data(n = 50, p = 6)
+    bestSubset(data$X, data$y, max_variables = 5, top_n = 2, n_threads = 2)
+  })
+
+  # All runs should give identical best models
+  for (i in 2:5) {
+    expect_equal(
+      results[[1]]$best_model$coefficients,
+      results[[i]]$best_model$coefficients,
+      tolerance = 1e-10,
+      info = paste("Run", i, "differs from run 1")
+    )
+  }
+})
+
+test_that("n_threads parameter validation works", {
+  data <- create_test_data(n = 30, p = 3)
+
+  # Valid: n_threads = 1
+  expect_no_error(bestSubset(data$X, data$y, n_threads = 1))
+
+  # Valid: n_threads = 2
+  expect_no_error(bestSubset(data$X, data$y, n_threads = 2))
+
+  # Valid: n_threads = NULL (auto-detect)
+  expect_no_error(bestSubset(data$X, data$y, n_threads = NULL))
+
+  # Invalid: n_threads = 0
+  expect_error(
+    bestSubset(data$X, data$y, n_threads = 0),
+    "n_threads must be at least 1"
+  )
+
+  # Invalid: n_threads = -1
+  expect_error(
+    bestSubset(data$X, data$y, n_threads = -1),
+    "n_threads must be at least 1"
+  )
+
+  # Invalid: n_threads = NaN
+  expect_error(
+    bestSubset(data$X, data$y, n_threads = NaN),
+    "n_threads must be a finite number"
+  )
+
+  # Invalid: n_threads = Inf
+  expect_error(
+    bestSubset(data$X, data$y, n_threads = Inf),
+    "n_threads must be a finite number"
+  )
+})
+
+test_that("n_threads warns when exceeding available cores", {
+  data <- create_test_data(n = 30, p = 3)
+
+  n_cores <- parallel::detectCores()
+
+  # Skip test if detectCores() returns NA (unlikely but possible)
+  skip_if(is.na(n_cores), "Cannot detect number of cores")
+
+  # Using more threads than available should trigger warning
+  expect_warning(
+    bestSubset(data$X, data$y, n_threads = n_cores + 5),
+    "n_threads.*exceeds available CPU cores.*This may reduce performance"
+  )
+
+  # Using exactly available cores should not warn
+  expect_no_warning(
+    bestSubset(data$X, data$y, n_threads = n_cores)
+  )
+
+  # Using fewer cores should not warn
+  expect_no_warning(
+    bestSubset(data$X, data$y, n_threads = max(1, n_cores - 1))
+  )
+})
+
+test_that("Parallel processing with different metrics", {
+  set.seed(456)
+  data <- create_test_data(n = 50, p = 5)
+
+  # Test with each metric
+  for (metric in c("accuracy", "auc", "deviance")) {
+    result_serial <- bestSubset(
+      data$X,
+      data$y,
+      metric = metric,
+      max_variables = 4,
+      n_threads = 1
+    )
+
+    result_parallel <- bestSubset(
+      data$X,
+      data$y,
+      metric = metric,
+      max_variables = 4,
+      n_threads = 2
+    )
+
+    expect_equal(
+      result_serial$best_model$coefficients,
+      result_parallel$best_model$coefficients,
+      tolerance = 1e-6,
+      info = paste("Metric:", metric)
+    )
+  }
 })

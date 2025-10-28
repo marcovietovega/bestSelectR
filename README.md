@@ -474,6 +474,8 @@ bestSubset(X, y, max_variables = NULL, top_n = 5, metric = "auc",
   - `"auc"`: Area under the ROC curve (default, higher is better)
   - `"accuracy"`: Classification accuracy (higher is better)
   - `"deviance"`: Model deviance (lower is better, measures model fit)
+  - `"aic"`: Akaike Information Criterion (lower is better)
+  - `"bic"`: Bayesian Information Criterion (lower is better)
 - `cross_validation`: Set to `TRUE` to enable k-fold cross-validation (default: `FALSE`)
 - `cv_folds`: Number of folds to use if cross-validation is enabled (default: 5)
 - `cv_repeats`: Number of times to repeat cross-validation (default: 1)
@@ -613,6 +615,19 @@ The package uses standard metrics to evaluate classification models:
   - Useful for comparing nested models
   - Directly comparable to R's `glm()` deviance
   - Supports both standard fitting and cross-validation
+\
+- **AIC (Akaike Information Criterion)**: Trade-off between goodness-of-fit and complexity
+  - AIC = deviance + 2k
+  - Here, k counts the number of predictors only; the intercept is not penalized
+  - Lower is better
+- **BIC (Bayesian Information Criterion)**: Stronger penalty for complexity on larger datasets
+  - BIC = deviance + k * log(n)
+  - n is the number of observations; k counts predictors only (intercept not penalized)
+  - Lower is better
+
+Notes on selection and cross-validation:
+- During the subset search, only the chosen metric (and deviance) is computed for each subset to rank models; all metrics are computed only for the best model afterward.
+- When `cross_validation = TRUE`, CV-averaged scores are used for ranking only for `metric = "accuracy"` or `"auc"`. For `"deviance"`, `"aic"`, and `"bic"`, ranking is based on full-data values even when CV is enabled.
 
 ## Usage Tips
 

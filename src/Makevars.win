@@ -1,0 +1,20 @@
+# Windows-specific Makevars
+# Basic configuration for Windows/Rtools compatibility
+
+# Base flags with Eigen optimizations
+PKG_CXXFLAGS = $(SHLIB_OPENMP_CXXFLAGS) -DEIGEN_NO_DEBUG -DNDEBUG
+
+# Optimization level (safe for Windows)
+PKG_CXXFLAGS += -O2
+
+# Suppress RcppEigen warnings for clean installation
+PKG_CXXFLAGS += -w
+
+# Link OpenMP
+PKG_LIBS = $(SHLIB_OPENMP_CXXFLAGS)
+
+# Note: Advanced optimizations not available on Windows:
+# - Apple Accelerate (macOS only)
+# - Link-Time Optimization (toolchain-dependent)
+# - march=native (may break on different CPUs)
+# Windows users will still get good performance from C++/Eigen/OpenMP

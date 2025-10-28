@@ -32,40 +32,33 @@ double LogisticRegression::plogis_clip(double t)
 
 double LogisticRegression::deviance_from_eta(const VectorXd &eta_in) const
 {
-    double dev = 0.0;
-    for (int i = 0; i < n; ++i)
-    {
-        double mu = plogis_clip(eta_in(i));
+    // Vectorized deviance computation with clipping
+    ArrayXd eta_arr = eta_in.array();
+    ArrayXd mu = 1.0 / (1.0 + (-eta_arr).exp());
+    // Clip to avoid log(0)
+    const double eps = DBL_EPSILON;
+    mu = mu.max(eps).min(1.0 - eps);
 
-        if (y(i) == 1.0)
-        {
-            if (mu > DBL_EPSILON)
-            {
-                dev += -2.0 * std::log(mu);
-            }
-            else
-            {
-                dev += 1e10;
-            }
-        }
-        else
-        {
-            if ((1.0 - mu) > DBL_EPSILON)
-            {
-                dev += -2.0 * std::log(1.0 - mu);
-            }
-            else
-            {
-                dev += 1e10;
-            }
-        }
-    }
-    return dev;
+    ArrayXd y_arr = y.array();
+    ArrayXd dev_terms = (-2.0) * (y_arr * mu.log() + (1.0 - y_arr) * (1.0 - mu).log());
+    return dev_terms.sum();
 }
 
 VectorXd LogisticRegression::irls_proposal_beta_from_eta(const VectorXd &eta_curr) const
 {
-    VectorXd sw(n), z(n);
+    // Ensure buffers are allocated
+    if (sw.size() != n)
+    {
+        sw.resize(n);
+        z.resize(n);
+        zw.resize(n);
+    }
+    if (Xw.rows() != n || Xw.cols() != p)
+    {
+        Xw.resize(n, p);
+    }
+
+    // Compute working response and sqrt(weights)
     for (int i = 0; i < n; ++i)
     {
         double mu = plogis_clip(eta_curr(i));
@@ -74,19 +67,45 @@ VectorXd LogisticRegression::irls_proposal_beta_from_eta(const VectorXd &eta_cur
         z(i) = eta_curr(i) + (y(i) - mu) / dmu;
     }
 
-    MatrixXd Xw = X;
-    VectorXd zw = z;
-    for (int i = 0; i < n; ++i)
+    // Xw = X .* sw (row-wise scaling via broadcasting)
+    Xw = X; // copy once
+    Xw = Xw.array().colwise() * sw.array();
+
+    // zw = z .* sw
+    zw = z.array() * sw.array();
+
+    // Solve weighted least squares via normal equations with Cholesky
+    // XtWX = (Xw^T Xw), XtWz = (Xw^T zw)
+    MatrixXd XtWX = Xw.transpose() * Xw;
+    VectorXd XtWz = Xw.transpose() * zw;
+
+    // Try LLT (Cholesky) first
+    Eigen::LLT<MatrixXd> llt;
+    llt.compute(XtWX);
+
+    bool llt_ok = (llt.info() == Eigen::Success);
+    if (!llt_ok)
     {
-        Xw.row(i) *= sw(i);
-        zw(i) *= sw(i);
+        // Add a tiny ridge and retry
+        double max_diag = XtWX.diagonal().cwiseAbs().maxCoeff();
+        double ridge = std::max(1e-12, 1e-8 * max_diag);
+        XtWX.diagonal().array() += ridge;
+        llt.compute(XtWX);
+        llt_ok = (llt.info() == Eigen::Success);
     }
 
-    ColPivHouseholderQR<MatrixXd> qr(Xw);
-    double qr_tol = std::min(1e-7, rel_tolerance / 1000.0); // min(1e-7, eps/1000)
-    qr.setThreshold(qr_tol);
-
-    return qr.solve(zw); // proposed beta
+    if (llt_ok)
+    {
+        return llt.solve(XtWz);
+    }
+    else
+    {
+        // Fallback: use QR on Xw
+        ColPivHouseholderQR<MatrixXd> qr(Xw);
+        double qr_tol = std::min(1e-7, rel_tolerance / 1000.0); // min(1e-7, eps/1000)
+        qr.setThreshold(qr_tol);
+        return qr.solve(zw);
+    }
 }
 
 // Initialization
@@ -116,10 +135,29 @@ LogisticRegression::LogisticRegression(const MatrixXd &X_in, const VectorXd &y_i
     eta = VectorXd::Zero(n);
 }
 
+// Overloaded constructor to accept block expressions without materializing temporaries
+LogisticRegression::LogisticRegression(const Ref<const MatrixXd> &X_in, const VectorXd &y_in,
+                                       int max_iter, double tol)
+    : X(X_in), y(y_in), max_iterations(max_iter), rel_tolerance(tol)
+{
+    n = X.rows();
+    p = X.cols();
+    beta = VectorXd::Zero(p);
+    eta = VectorXd::Zero(n);
+}
+
 // Main fitting method
 void LogisticRegression::fit()
 {
-    initialize();
+    if (has_initial_guess && beta_initial.size() == p && eta_initial.size() == n)
+    {
+        beta = beta_initial;
+        eta = eta_initial;
+    }
+    else
+    {
+        initialize();
+    }
 
     // Use the CURRENT MODEL deviance (beta=0 ⇒ mu=0.5) as the baseline
     double dev_old = deviance_from_eta(X * beta);
@@ -139,8 +177,9 @@ void LogisticRegression::fit()
         {
             for (int k = 0; k < 30 && !(dev_new < dev_old); ++k)
             {
+                // Halve step in parameter and update eta via linearity: X * (avg beta) = avg(etas)
                 beta_prop = 0.5 * (beta_before + beta_prop);
-                eta_prop = X * beta_prop;
+                eta_prop = 0.5 * (eta_before + eta_prop);
                 dev_new = deviance_from_eta(eta_prop);
             }
         }
@@ -169,12 +208,10 @@ VectorXd LogisticRegression::getCoefficients() const
 VectorXd LogisticRegression::predict_proba(const MatrixXd &X_new) const
 {
     VectorXd eta_new = X_new * beta;
-    VectorXd probs(eta_new.size());
-    for (int i = 0; i < eta_new.size(); ++i)
-    {
-        probs(i) = plogis_clip(eta_new(i));
-    }
-    return probs;
+    ArrayXd mu = 1.0 / (1.0 + (-eta_new.array()).exp());
+    const double eps = DBL_EPSILON;
+    mu = mu.max(eps).min(1.0 - eps);
+    return mu.matrix();
 }
 
 VectorXi LogisticRegression::predict(const MatrixXd &X_new) const
@@ -196,4 +233,12 @@ VectorXd LogisticRegression::get_fitted_values() const
 double LogisticRegression::get_deviance() const
 {
     return deviance_from_eta(eta);
+}
+
+void LogisticRegression::setInitialGuess(const VectorXd &beta0, const VectorXd &eta0)
+{
+    // Basic validation (sizes checked in fit)
+    beta_initial = beta0;
+    eta_initial = eta0;
+    has_initial_guess = true;
 }

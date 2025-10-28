@@ -180,18 +180,38 @@ detect_perfect_separation <- function(X_clean, y_clean) {
 warn_computational_complexity <- function(n_predictors, max_variables_used) {
 
     actual_p <- if (is.null(max_variables_used)) n_predictors else max_variables_used
-    total_models <- 2^actual_p - 1
 
-    # Warn when searching more than 20 variables
-    if (actual_p > 20) {
-        warning(paste0(
-            "Large search space: 2^", actual_p, " - 1 = ",
-            format(total_models, big.mark = ",", scientific = TRUE),
-            " models.\n",
-            "Computation may be very slow or infeasible. ",
-            "Consider setting max_variables <= 20 for reasonable performance."
+    if (actual_p > 60) {
+        stop(paste0(
+            "max_variables cannot exceed 60.\n",
+            "Reason: Best subset selection beyond 60 variables is computationally infeasible.\n",
+            "Solution: Set max_variables <= 60, or use regularization methods (LASSO, elastic net)."
         ), call. = FALSE)
     }
 
-    return(invisible(total_models))
+    total_subsets <- 0
+    for (k in 1:actual_p) {
+        total_subsets <- total_subsets + choose(n_predictors, k)
+    }
+
+    max_safe_count <- 2^63 - 1
+
+    if (total_subsets > max_safe_count) {
+        stop(paste0(
+            "Search space too large: ", format(total_subsets, scientific = TRUE), " models.\n",
+            "This exceeds the maximum safe integer count (2^63 - 1 = 9.2 quintillion).\n\n",
+            "Current settings: ", n_predictors, " predictors, max_variables = ", actual_p, "\n",
+            "Solution: Reduce max_variables or use regularization methods."
+        ), call. = FALSE)
+    }
+
+    if (total_subsets > 1e7) {
+        warning(paste0(
+            "Large search space: ", format(total_subsets, scientific = TRUE), " models.\n",
+            "Computation may take several minutes. ",
+            "Consider reducing max_variables for faster results."
+        ), call. = FALSE)
+    }
+
+    return(invisible(total_subsets))
 }

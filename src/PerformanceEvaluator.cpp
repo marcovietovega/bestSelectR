@@ -124,15 +124,19 @@ double PerformanceEvaluator::calculateDeviance(const VectorXd &probabilities, co
 }
 
 // Calculate AIC (Akaike Information Criterion)
+// Uses bestglm convention: penalty excludes intercept
+// n_parameters includes intercept, so use (n_parameters - 1) for penalty
 double PerformanceEvaluator::calculateAIC(double deviance, int n_parameters)
 {
-    return deviance + 2.0 * n_parameters;
+    return deviance + 2.0 * (n_parameters - 1);
 }
 
 // Calculate BIC (Bayesian Information Criterion)
+// Uses bestglm convention: penalty excludes intercept
+// n_parameters includes intercept, so use (n_parameters - 1) for penalty
 double PerformanceEvaluator::calculateBIC(double deviance, int n_parameters, int n_observations)
 {
-    return deviance + n_parameters * std::log(n_observations);
+    return deviance + (n_parameters - 1) * std::log(n_observations);
 }
 
 // K-Fold Cross-Validation method
