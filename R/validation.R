@@ -181,9 +181,6 @@ warn_computational_complexity <- function(n_predictors, max_variables_used) {
 
     actual_p <- if (is.null(max_variables_used)) n_predictors else max_variables_used
 
-    # Hard limit: max_variables cannot exceed 60
-    # With 64-bit integers, we can safely handle up to 2^63 - 1
-    # Beyond p=60, even the best algorithms become computationally infeasible
     if (actual_p > 60) {
         stop(paste0(
             "max_variables cannot exceed 60.\n",
@@ -192,15 +189,11 @@ warn_computational_complexity <- function(n_predictors, max_variables_used) {
         ), call. = FALSE)
     }
 
-    # Calculate exact number of subsets we'll evaluate
-    # This is sum of C(n_predictors, k) for k = 1 to actual_p
     total_subsets <- 0
     for (k in 1:actual_p) {
         total_subsets <- total_subsets + choose(n_predictors, k)
     }
 
-    # Check for integer overflow in C++ (size_t can hold up to 2^64 - 1 on 64-bit systems)
-    # We use 2^63 - 1 as the practical limit (9.2 quintillion)
     max_safe_count <- 2^63 - 1
 
     if (total_subsets > max_safe_count) {
@@ -212,7 +205,6 @@ warn_computational_complexity <- function(n_predictors, max_variables_used) {
         ), call. = FALSE)
     }
 
-    # Warn about large computations (> 10 million models)
     if (total_subsets > 1e7) {
         warning(paste0(
             "Large search space: ", format(total_subsets, scientific = TRUE), " models.\n",
