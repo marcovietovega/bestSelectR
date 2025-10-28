@@ -27,9 +27,6 @@
 #' @param n_threads Number of threads for parallel processing (default: NULL for auto-detection).
 #'   Use 1 for serial execution, or specify a positive integer for a specific thread count.
 #'   Set to NULL to automatically use all available cores minus 1.
-#' @param omp_schedule Optional OpenMP schedule string to tune parallel work-stealing at runtime
-#'   when n_threads > 1. Examples: "guided,32", "dynamic,64". If NULL (default), the
-#'   system environment (OMP_SCHEDULE) is used as-is. This is ignored when n_threads = 1.
 #'
 #' @details
 #' Selection is performed by evaluating only the chosen metric (plus deviance) for every
@@ -75,8 +72,7 @@ bestSubset <- function(
   cv_repeats = 1,
   cv_seed = NULL,
   na.action = na.fail,
-  n_threads = NULL,
-  omp_schedule = NULL
+  n_threads = NULL
 ) {
   call <- match.call()
 
@@ -173,16 +169,6 @@ bestSubset <- function(
         call. = FALSE
       )
     }
-  }
-
-  # Apply optional OpenMP schedule override (must be set before entering C++ parallel regions)
-  if (!is.null(omp_schedule)) {
-    if (!is.character(omp_schedule) || length(omp_schedule) != 1L) {
-      stop(
-        "omp_schedule must be a single character string like 'guided,32' or NULL"
-      )
-    }
-    Sys.setenv(OMP_SCHEDULE = omp_schedule)
   }
 
   # Calculate number of subsets to evaluate
