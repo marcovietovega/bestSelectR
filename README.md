@@ -352,18 +352,18 @@ set.seed(123)
 X_high <- matrix(rnorm(32 * 12), nrow = 32, ncol = 12)
 y_high <- rbinom(32, 1, 0.5)
 
-# Test warning for max_variables > 15
+# Test warning for large search space
 result_warn <- bestSubset(X_high, y_high, max_variables = 16)
 cat("Test with max_variables = 16 completed (should show warning)\n")
 
-# Test hard cap at max_variables = 20
-result_cap <- bestSubset(X_high, y_high, max_variables = 25)
-cat("Test with max_variables = 25 completed (should cap at 20)\n")
-
-# Verify the cap was applied
-if (result_cap$call_info$max_variables <= 20) {
-  cat("Confirmed: max_variables capped at 20 for computational feasibility\n")
-}
+# Test hard cap at max_variables = 60
+X_wide <- matrix(rnorm(100 * 65), nrow = 100, ncol = 65)
+y_wide <- rbinom(100, 1, 0.5)
+tryCatch({
+  result_cap <- bestSubset(X_wide, y_wide, max_variables = 65)
+}, error = function(e) {
+  cat("Test with max_variables = 65 failed as expected (exceeds limit of 60)\n")
+})
 
 # Test warning for large search space (>10 variables)
 X_medium <- matrix(rnorm(32 * 11), nrow = 32, ncol = 11)
@@ -374,7 +374,7 @@ cat("Test with 11 variables completed (should show computational warning)\n")
 **Expected outcome**:
 
 - max_variables > 15 triggers warning about large search space
-- max_variables > 20 is capped at 20 with warning
+- max_variables > 60 causes an error (hard computational limit)
 - Models with >10 variables show computational complexity warnings
 - All warnings should be informative and guide users
 
@@ -458,7 +458,7 @@ cat("Most predictive variables:", paste(var_names, collapse = ", "), "\n")
 ```r
 bestSubset(X, y, max_variables = NULL, top_n = 5, metric = "auc",
            cross_validation = FALSE, cv_folds = 5, cv_repeats = 1,
-           cv_seed = NULL, na.action = na.fail)
+           cv_seed = NULL, na.action = na.fail, n_threads = NULL)
 ```
 
 **Required arguments:**
@@ -484,6 +484,11 @@ bestSubset(X, y, max_variables = NULL, top_n = 5, metric = "auc",
   - `na.fail`: stop with an error if any values are missing (default)
   - `na.omit`: drop rows with missing values
   - `na.exclude`: drop rows, but keep row alignment for predictions
+- `n_threads`: Number of threads for parallel processing (default: `NULL` for auto-detection)
+  - Use `NULL` to automatically use all available cores minus 1 (recommended)
+  - Use `1` for serial execution
+  - Specify a positive integer for custom thread count
+  - Parallel processing provides significant speedup (typically 4-5x with multiple cores)
 
 ## Output Summary
 
