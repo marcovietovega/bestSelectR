@@ -15,8 +15,7 @@ bestSubset(
   cv_repeats = 1,
   cv_seed = NULL,
   na.action = na.fail,
-  n_threads = NULL,
-  omp_schedule = NULL
+  n_threads = NULL
 )
 }
 \arguments{
@@ -54,10 +53,6 @@ applying a stronger penalty for larger datasets.}
 \item{n_threads}{Number of threads for parallel processing (default: NULL for auto-detection).
 Use 1 for serial execution, or specify a positive integer for a specific thread count.
 Set to NULL to automatically use all available cores minus 1.}
-
-\item{omp_schedule}{Optional OpenMP schedule string to tune parallel work-stealing at runtime
-when n_threads > 1. Examples: "guided,32", "dynamic,64". If NULL (default), the
-system environment (OMP_SCHEDULE) is used as-is. This is ignored when n_threads = 1.}
 }
 \value{
 A list with class "bestSubset" containing:
