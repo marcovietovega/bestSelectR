@@ -108,7 +108,14 @@ bestSubset <- function(
 
   detect_perfect_separation(X_clean, y_clean)
 
-  # Check computational complexity and enforce hard limits
+  if (!is.null(validated_params$max_variables) && validated_params$max_variables > 60) {
+    stop(paste0(
+      "max_variables cannot exceed 60.\n",
+      "Reason: Best subset selection beyond 60 variables is computationally infeasible.\n",
+      "Solution: Set max_variables <= 60, or use regularization methods (LASSO, elastic net)."
+    ), call. = FALSE)
+  }
+
   actual_max_vars <- if (is.null(validated_params$max_variables)) {
     ncol(X_clean)
   } else {
