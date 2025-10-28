@@ -1,8 +1,8 @@
 ---
-title: "bestSelectR-tutorial"
+title: "Introduction to bestSelectR"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{bestSelectR-tutorial}
+  %\VignetteIndexEntry{Introduction to bestSelectR}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -17,3 +17,244 @@ knitr::opts_chunk$set(
 ```{r setup}
 library(bestSelectR)
 ```
+
+## Overview
+
+**bestSelectR** performs best subset selection for logistic regression models. It evaluates all possible combinations of predictor variables and identifies the subsets that best predict a binary outcome.
+
+This vignette demonstrates the basic functionality and shows you how to:
+
+- Perform basic subset selection
+- Interpret the results
+- Use different selection metrics
+- Make predictions with fitted models
+- Handle missing data
+
+## Basic Example
+
+Let's start with a simple example using the built-in `mtcars` dataset to predict transmission type (automatic vs manual):
+
+```{r basic-example}
+# Prepare data
+data(mtcars)
+X <- as.matrix(mtcars[, c("mpg", "hp", "wt", "qsec")])
+y <- mtcars$am  # 0 = automatic, 1 = manual
+
+# Find best subsets
+result <- bestSubset(X, y, max_variables = 3, top_n = 5, metric = "auc")
+
+# View results
+print(result)
+```
+
+The output shows:
+- Best model information (which variables, performance metrics)
+- Selection settings used
+- Data summary
+
+## Understanding the Results
+
+Use `summary()` to see detailed information:
+
+```{r summary}
+summary(result)
+```
+
+This shows:
+- Top 5 models ranked by AUC
+- Coefficients of the best model
+- Performance metrics for each model
+
+## Extracting Information
+
+You can extract specific components:
+
+```{r extract-info}
+# Get coefficients of best model
+coeffs <- coef(result)
+print(coeffs)
+
+# Access best model details
+best <- result$best_model
+cat("Best model uses", best$n_variables, "variables\n")
+cat("Variables:", paste(colnames(X)[best$variables], collapse = ", "), "\n")
+cat("AUC:", round(best$auc, 3), "\n")
+
+# View all top models
+top_models <- result$models
+head(top_models)
+```
+
+## Making Predictions
+
+Use the fitted model to predict on new data:
+
+```{r predictions}
+# Create new data (same structure as training data)
+new_data <- matrix(c(
+  20.0, 150, 3.0, 18.0,  # Car 1
+  15.0, 300, 4.5, 16.0,  # Car 2
+  25.0, 100, 2.5, 20.0   # Car 3
+), nrow = 3, ncol = 4, byrow = TRUE)
+colnames(new_data) <- colnames(X)
+
+# Probability predictions
+probs <- predict(result, new_data, type = "prob")
+cat("Predicted probabilities:\n")
+print(probs)
+
+# Class predictions
+classes <- predict(result, new_data, type = "class")
+cat("\nPredicted classes:\n")
+print(classes)
+```
+
+## Selection Metrics
+
+Different metrics emphasize different aspects of model quality:
+
+### AUC (Default)
+
+Area Under the ROC Curve - measures discrimination ability:
+
+```{r auc-metric}
+result_auc <- bestSubset(X, y, max_variables = 3, metric = "auc")
+cat("Best AUC:", round(result_auc$best_model$auc, 3), "\n")
+```
+
+### Accuracy
+
+Proportion of correct predictions:
+
+```{r accuracy-metric}
+result_acc <- bestSubset(X, y, max_variables = 3, metric = "accuracy")
+cat("Best accuracy:", round(result_acc$best_model$accuracy, 3), "\n")
+```
+
+### BIC
+
+Bayesian Information Criterion - penalizes model complexity:
+
+```{r bic-metric}
+result_bic <- bestSubset(X, y, max_variables = 3, metric = "bic")
+cat("Best BIC:", round(result_bic$best_model$bic, 2), "\n")
+```
+
+**Metric guidance:**
+- **AUC**: Good for imbalanced data, measures discrimination
+- **Accuracy**: Simple, intuitive for balanced classes
+- **BIC/AIC**: Statistical criteria, penalize complexity
+- **Deviance**: Direct measure of model fit (lower is better)
+
+## Cross-Validation
+
+Use cross-validation for more reliable performance estimates:
+
+```{r cross-validation}
+result_cv <- bestSubset(X, y,
+                        max_variables = 3,
+                        cross_validation = TRUE,
+                        cv_folds = 5,
+                        cv_seed = 123,
+                        metric = "auc")
+
+cat("Cross-validated AUC:", round(result_cv$best_model$auc, 3), "\n")
+```
+
+Cross-validation helps avoid overfitting by testing the model on data it hasn't seen.
+
+## Handling Missing Data
+
+The package provides three approaches to missing values:
+
+```{r missing-data, error=TRUE}
+# Create data with missing values
+X_missing <- X
+X_missing[c(1, 5, 10), 1] <- NA
+
+# Option 1: Error on missing values (default)
+try(bestSubset(X_missing, y, na.action = na.fail))
+
+# Option 2: Remove rows with missing values
+result_omit <- bestSubset(X_missing, y, na.action = na.omit, max_variables = 2)
+cat("Used", result_omit$call_info$n_observations, "complete cases\n")
+
+# Option 3: Remove rows but preserve row alignment
+result_exclude <- bestSubset(X_missing, y, na.action = na.exclude, max_variables = 2)
+```
+
+## Performance Tips
+
+For large datasets or many predictors:
+
+1. **Limit maximum variables**: Use `max_variables` to reduce computation time
+2. **Use parallel processing**: Set `n_threads` for faster evaluation
+3. **Consider the computational cost**: The package evaluates all possible subsets up to `max_variables`
+
+```{r performance-tips, eval=FALSE}
+# Limit to 5 variables for speed
+result_fast <- bestSubset(X, y, max_variables = 5)
+
+# Use multiple threads (auto-detected)
+result_parallel <- bestSubset(X, y, max_variables = 8, n_threads = NULL)
+
+# Specify thread count
+result_threads <- bestSubset(X, y, max_variables = 8, n_threads = 4)
+```
+
+**Computational complexity:**
+
+- For `max_variables = k` and `p` predictors: evaluates C(p,1) + C(p,2) + ... + C(p,k) models
+- Example: `p = 20, max_variables = 8` evaluates ~264,000 models
+- Recommendation: Keep `max_variables ≤ 10` for reasonable speed
+
+## Complete Example
+
+Here's a complete workflow:
+
+```{r complete-example}
+# 1. Prepare data
+set.seed(123)
+X <- matrix(rnorm(100), nrow = 20, ncol = 5)
+colnames(X) <- paste0("X", 1:5)
+y <- rbinom(20, 1, 0.5)
+
+# 2. Find best subsets with cross-validation
+result <- bestSubset(X, y,
+                     max_variables = 3,
+                     top_n = 3,
+                     metric = "auc",
+                     cross_validation = TRUE,
+                     cv_folds = 5,
+                     cv_seed = 42)
+
+# 3. Examine results
+summary(result)
+
+# 4. Extract best model coefficients
+coef(result)
+
+# 5. Make predictions on new data
+new_X <- matrix(rnorm(25), nrow = 5, ncol = 5)
+colnames(new_X) <- paste0("X", 1:5)
+predictions <- predict(result, new_X, type = "prob")
+cat("\nPredictions for new data:\n")
+print(predictions)
+```
+
+## Additional Resources
+
+- Package documentation: `?bestSubset`
+- README with test plan: See package GitHub repository
+- Method implementations: `?predict.bestSubset`, `?coef.bestSubset`, `?summary.bestSubset`
+
+## Summary
+
+Key takeaways:
+
+- `bestSubset()` finds optimal variable combinations for logistic regression
+- Use `max_variables` to control computational cost
+- Different metrics (`auc`, `accuracy`, `bic`) emphasize different model qualities
+- Cross-validation provides more reliable performance estimates
+- The package handles missing data with `na.action` parameter
+- Use `predict()` for new data, `coef()` for coefficients, `summary()` for detailed results
