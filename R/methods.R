@@ -1,3 +1,10 @@
+#' Print method for bestSubset objects
+#'
+#' @param x A bestSubset object from bestSubset()
+#' @param ... Additional arguments (currently unused)
+#'
+#' @return Invisibly returns the input object
+#'
 #' @export
 print.bestSubset <- function(x, ...) {
     cat("Best Subset Selection Results\n")
@@ -63,6 +70,13 @@ print.bestSubset <- function(x, ...) {
     cat("  BIC:", sprintf("%.4f", best$bic), "\n\n")
 }
 
+#' Summary method for bestSubset objects
+#'
+#' @param object A bestSubset object from bestSubset()
+#' @param ... Additional arguments (currently unused)
+#'
+#' @return Invisibly returns the input object
+#'
 #' @export
 summary.bestSubset <- function(object, ...) {
     print(object)
