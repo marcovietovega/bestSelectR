@@ -632,7 +632,7 @@ The package uses standard metrics to evaluate classification models:
 
 Notes on selection and cross-validation:
 - During the subset search, only the chosen metric (and deviance) is computed for each subset to rank models; all metrics are computed only for the best model afterward.
-- When `cross_validation = TRUE`, CV-averaged scores are used for ranking only for `metric = "accuracy"` or `"auc"`. For `"deviance"`, `"aic"`, and `"bic"`, ranking is based on full-data values even when CV is enabled.
+- When `cross_validation = TRUE`, CV-averaged scores are used for ranking for all metrics (accuracy, auc, deviance, aic, and bic).
 
 ## Usage Tips
 
