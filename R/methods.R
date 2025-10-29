@@ -58,7 +58,9 @@ print.bestSubset <- function(x, ...) {
     cat("  Predictors:", best$n_variables, "\n")
     cat("  Accuracy:", sprintf("%.4f", best$accuracy), "\n")
     cat("  AUC:", sprintf("%.4f", best$auc), "\n")
-    cat("  Deviance:", sprintf("%.4f", best$deviance), "\n\n")
+    cat("  Deviance:", sprintf("%.4f", best$deviance), "\n")
+    cat("  AIC:", sprintf("%.4f", best$aic), "\n")
+    cat("  BIC:", sprintf("%.4f", best$bic), "\n\n")
 }
 
 #' @export
@@ -75,6 +77,8 @@ summary.bestSubset <- function(object, ...) {
         Accuracy = sprintf("%.4f", models_df$accuracy),
         AUC = sprintf("%.4f", models_df$auc),
         Deviance = sprintf("%.4f", models_df$deviance),
+        AIC = sprintf("%.4f", models_df$aic),
+        BIC = sprintf("%.4f", models_df$bic),
         stringsAsFactors = FALSE
     )
 
