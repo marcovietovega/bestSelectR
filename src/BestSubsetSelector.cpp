@@ -543,13 +543,13 @@ void BestSubsetSelector::fit(int max_vars, int top_n, const std::string &selecti
         best_results.push_back(all_results[i]);
     }
 
-    // Calculate all metrics for the best model (for complete reporting)
-    // This ensures best model has complete info without refitting
-    if (!best_results.empty())
+    // Calculate all metrics for all top_n models (for complete reporting)
+    // This ensures all top models have complete info without refitting
+    for (int i = 0; i < static_cast<int>(best_results.size()); ++i)
     {
-        SubsetResult &best = best_results[0];
-        Model best_model = best.getModel();
-        std::vector<int> var_indices = best_model.getVariableIndices();
+        SubsetResult &result = best_results[i];
+        Model model = result.getModel();
+        std::vector<int> var_indices = model.getVariableIndices();
 
         // Remove intercept marker (-1) from indices to get just predictor indices
         std::vector<int> predictor_indices;
@@ -562,23 +562,23 @@ void BestSubsetSelector::fit(int max_vars, int top_n, const std::string &selecti
         }
 
         // Extract subset matrix (this will add intercept if needed)
-        MatrixXd X_best = extractSubsetMatrix(predictor_indices);
+        MatrixXd X_subset = extractSubsetMatrix(predictor_indices);
 
-        // Use existing model to calculate missing metrics (don't refit!)
-        VectorXi predictions = best_model.predict(X_best);
+        // Use existing model to calculate all metrics (don't refit!)
+        VectorXi predictions = model.predict(X_subset);
         double accuracy = PerformanceEvaluator::calculateAccuracy(predictions, y);
 
-        VectorXd fitted_probs = best_model.predict_proba(X_best);
+        VectorXd fitted_probs = model.predict_proba(X_subset);
         double auc = PerformanceEvaluator::calculateAUC(fitted_probs, y);
 
         // Get existing deviance and calculate AIC/BIC
-        double deviance = best_model.getDeviance();
-        int n_params = X_best.cols();
+        double deviance = model.getDeviance();
+        int n_params = X_subset.cols();
         double aic_value = PerformanceEvaluator::calculateAIC(deviance, n_params);
         double bic_value = PerformanceEvaluator::calculateBIC(deviance, n_params, n_observations);
 
-        // Update best result with all metrics (preserving the same model)
-        best_results[0] = SubsetResult(best_model, accuracy, auc, aic_value, bic_value);
+        // Update result with all metrics (preserving the same model)
+        best_results[i] = SubsetResult(model, accuracy, auc, aic_value, bic_value);
     }
 
     is_fitted = true;
@@ -609,12 +609,13 @@ void BestSubsetSelector::fitBranchAndBound()
         best_results.push_back(all_results[i]);
     }
 
-    // Compute full metrics for best model (as in existing path)
-    if (!best_results.empty())
+    // Calculate all metrics for all top_n models (for complete reporting)
+    // This ensures all top models have complete info without refitting
+    for (int i = 0; i < static_cast<int>(best_results.size()); ++i)
     {
-        SubsetResult &best = best_results[0];
-        Model best_model = best.getModel();
-        std::vector<int> var_indices = best_model.getVariableIndices();
+        SubsetResult &result = best_results[i];
+        Model model = result.getModel();
+        std::vector<int> var_indices = model.getVariableIndices();
 
         // Remove intercept marker (-1) from indices to get just predictor indices
         std::vector<int> predictor_indices;
@@ -626,20 +627,20 @@ void BestSubsetSelector::fitBranchAndBound()
             }
         }
 
-        MatrixXd X_best = extractSubsetMatrix(predictor_indices);
+        MatrixXd X_subset = extractSubsetMatrix(predictor_indices);
 
-        VectorXi predictions = best_model.predict(X_best);
+        VectorXi predictions = model.predict(X_subset);
         double accuracy = PerformanceEvaluator::calculateAccuracy(predictions, y);
 
-        VectorXd fitted_probs = best_model.predict_proba(X_best);
+        VectorXd fitted_probs = model.predict_proba(X_subset);
         double auc = PerformanceEvaluator::calculateAUC(fitted_probs, y);
 
-        double deviance = best_model.getDeviance();
-        int n_params = X_best.cols();
+        double deviance = model.getDeviance();
+        int n_params = X_subset.cols();
         double aic_value = PerformanceEvaluator::calculateAIC(deviance, n_params);
         double bic_value = PerformanceEvaluator::calculateBIC(deviance, n_params, n_observations);
 
-        best_results[0] = SubsetResult(best_model, accuracy, auc, aic_value, bic_value);
+        best_results[i] = SubsetResult(model, accuracy, auc, aic_value, bic_value);
     }
 
     is_fitted = true;
@@ -963,12 +964,13 @@ void BestSubsetSelector::fitWithCrossValidation(int max_vars)
         best_results.push_back(all_results[i]);
     }
 
-    // Calculate all metrics for the best model (for complete reporting)
-    if (!best_results.empty())
+    // Calculate all metrics for all top_n models (for complete reporting)
+    // This ensures all top models have complete info without refitting
+    for (int i = 0; i < static_cast<int>(best_results.size()); ++i)
     {
-        SubsetResult &best = best_results[0];
-        Model best_model = best.getModel();
-        std::vector<int> var_indices = best_model.getVariableIndices();
+        SubsetResult &result = best_results[i];
+        Model model = result.getModel();
+        std::vector<int> var_indices = model.getVariableIndices();
 
         // Remove intercept marker (-1) from indices to get just predictor indices
         std::vector<int> predictor_indices;
@@ -980,20 +982,20 @@ void BestSubsetSelector::fitWithCrossValidation(int max_vars)
             }
         }
 
-        MatrixXd X_best = extractSubsetMatrix(predictor_indices);
+        MatrixXd X_subset = extractSubsetMatrix(predictor_indices);
 
-        VectorXi predictions = best_model.predict(X_best);
+        VectorXi predictions = model.predict(X_subset);
         double accuracy = PerformanceEvaluator::calculateAccuracy(predictions, y);
 
-        VectorXd fitted_probs = best_model.predict_proba(X_best);
+        VectorXd fitted_probs = model.predict_proba(X_subset);
         double auc = PerformanceEvaluator::calculateAUC(fitted_probs, y);
 
-        double deviance = best_model.getDeviance();
-        int n_params = X_best.cols();
+        double deviance = model.getDeviance();
+        int n_params = X_subset.cols();
         double aic_value = PerformanceEvaluator::calculateAIC(deviance, n_params);
         double bic_value = PerformanceEvaluator::calculateBIC(deviance, n_params, n_observations);
 
-        best_results[0] = SubsetResult(best_model, accuracy, auc, aic_value, bic_value);
+        best_results[i] = SubsetResult(model, accuracy, auc, aic_value, bic_value);
     }
 
     is_fitted = true;
