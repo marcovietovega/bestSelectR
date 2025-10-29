@@ -117,7 +117,13 @@ bestSubset <- function(
   } else {
     min(validated_params$max_variables, ncol(X_clean))
   }
-  warn_computational_complexity(ncol(X_clean), actual_max_vars)
+  warn_computational_complexity(
+    ncol(X_clean),
+    actual_max_vars,
+    validated_params$cross_validation,
+    validated_params$cv_folds,
+    validated_params$cv_repeats
+  )
 
   max_variables <- validated_params$max_variables
   top_n <- validated_params$top_n
