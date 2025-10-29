@@ -875,37 +875,34 @@ void BestSubsetSelector::fitWithCrossValidation(int max_vars)
             std::vector<int> indices_for_model = include_intercept ? addInterceptColumn(subset) : subset;
             model.fitFromLogisticRegression(lr, indices_for_model);
 
-            // Calculate only the metrics needed for selection (optimize performance)
             double final_accuracy = NA_REAL;
             double final_auc = NA_REAL;
             double aic_value = NA_REAL;
             double bic_value = NA_REAL;
+            double deviance = NA_REAL;
 
-            // Always calculate deviance (needed for AIC/BIC and is cheap)
-            double deviance = model.getDeviance();
-            int n_params = X_subset.cols();
-
-            // Calculate based on selected metric (only what's needed)
+            // Use CV performance for ranking
             if (metric == "accuracy")
             {
-                // Use CV accuracy for ranking
                 final_accuracy = cv_performance;
             }
             else if (metric == "auc")
             {
-                // Use CV AUC for ranking
                 final_auc = cv_performance;
+            }
+            else if (metric == "deviance")
+            {
+                deviance = cv_performance;
             }
             else if (metric == "aic")
             {
-                aic_value = PerformanceEvaluator::calculateAIC(deviance, n_params);
+                aic_value = cv_performance;
             }
             else if (metric == "bic")
             {
-                bic_value = PerformanceEvaluator::calculateBIC(deviance, n_params, n_observations);
+                bic_value = cv_performance;
             }
-            // For "deviance" metric, deviance is already calculated
-            else if (metric != "deviance")
+            else
             {
                 throw std::invalid_argument("Unsupported metric: " + metric);
             }
@@ -964,15 +961,18 @@ void BestSubsetSelector::fitWithCrossValidation(int max_vars)
         best_results.push_back(all_results[i]);
     }
 
-    // Calculate all metrics for all top_n models (for complete reporting)
-    // This ensures all top models have complete info without refitting
+    // Calculate all metrics for top_n models
     for (int i = 0; i < static_cast<int>(best_results.size()); ++i)
     {
         SubsetResult &result = best_results[i];
         Model model = result.getModel();
         std::vector<int> var_indices = model.getVariableIndices();
 
-        // Remove intercept marker (-1) from indices to get just predictor indices
+        double current_accuracy = result.getAccuracy();
+        double current_auc = result.getAUC();
+        double current_aic = result.getAIC();
+        double current_bic = result.getBIC();
+
         std::vector<int> predictor_indices;
         for (int idx : var_indices)
         {
@@ -985,15 +985,15 @@ void BestSubsetSelector::fitWithCrossValidation(int max_vars)
         MatrixXd X_subset = extractSubsetMatrix(predictor_indices);
 
         VectorXi predictions = model.predict(X_subset);
-        double accuracy = PerformanceEvaluator::calculateAccuracy(predictions, y);
+        double accuracy = (metric == "accuracy") ? current_accuracy : PerformanceEvaluator::calculateAccuracy(predictions, y);
 
         VectorXd fitted_probs = model.predict_proba(X_subset);
-        double auc = PerformanceEvaluator::calculateAUC(fitted_probs, y);
+        double auc = (metric == "auc") ? current_auc : PerformanceEvaluator::calculateAUC(fitted_probs, y);
 
         double deviance = model.getDeviance();
         int n_params = X_subset.cols();
-        double aic_value = PerformanceEvaluator::calculateAIC(deviance, n_params);
-        double bic_value = PerformanceEvaluator::calculateBIC(deviance, n_params, n_observations);
+        double aic_value = (metric == "aic") ? current_aic : PerformanceEvaluator::calculateAIC(deviance, n_params);
+        double bic_value = (metric == "bic") ? current_bic : PerformanceEvaluator::calculateBIC(deviance, n_params, n_observations);
 
         best_results[i] = SubsetResult(model, accuracy, auc, aic_value, bic_value);
     }
