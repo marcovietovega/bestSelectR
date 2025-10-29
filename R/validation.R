@@ -177,7 +177,8 @@ detect_perfect_separation <- function(X_clean, y_clean) {
     return(separated_vars)
 }
 
-warn_computational_complexity <- function(n_predictors, max_variables_used) {
+warn_computational_complexity <- function(n_predictors, max_variables_used,
+                                          use_cv = FALSE, cv_folds = 5, cv_repeats = 1) {
 
     actual_p <- if (is.null(max_variables_used)) n_predictors else max_variables_used
 
@@ -205,9 +206,24 @@ warn_computational_complexity <- function(n_predictors, max_variables_used) {
         ), call. = FALSE)
     }
 
+    # Calculate total model fits (subsets * folds * repeats)
+    use_cv_logical <- isTRUE(use_cv)
+    cv_multiplier <- if (use_cv_logical) cv_folds * cv_repeats else 1
+    total_fits <- total_subsets * cv_multiplier
+
     if (total_subsets > 1e7) {
+        cv_info <- if (use_cv_logical) {
+            paste0(
+                " with ", cv_folds, "-fold CV",
+                if (cv_repeats > 1) paste0(" repeated ", cv_repeats, " times") else "",
+                " (", format(total_fits, scientific = TRUE, digits = 3), " total model fits)"
+            )
+        } else {
+            ""
+        }
+
         warning(paste0(
-            "Large search space: ", format(total_subsets, scientific = TRUE), " models.\n",
+            "Large search space: ", format(total_subsets, scientific = TRUE), " subset models", cv_info, ".\n",
             "Computation may take several minutes. ",
             "Consider reducing max_variables for faster results."
         ), call. = FALSE)
