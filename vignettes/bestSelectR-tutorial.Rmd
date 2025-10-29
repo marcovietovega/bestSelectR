@@ -38,7 +38,7 @@ Let's start with a simple example using the built-in `mtcars` dataset to predict
 # Prepare data
 data(mtcars)
 X <- as.matrix(mtcars[, c("mpg", "hp", "wt", "qsec")])
-y <- mtcars$am  # 0 = automatic, 1 = manual
+y <- mtcars$am # 0 = automatic, 1 = manual
 
 # Find best subsets
 result <- bestSubset(X, y, max_variables = 3, top_n = 5, metric = "auc")
@@ -92,9 +92,9 @@ Use the fitted model to predict on new data:
 ```{r predictions}
 # Create new data (same structure as training data)
 new_data <- matrix(c(
-  20.0, 150, 3.0, 18.0,  # Car 1
-  15.0, 300, 4.5, 16.0,  # Car 2
-  25.0, 100, 2.5, 20.0   # Car 3
+  20.0, 150, 3.0, 18.0, # Car 1
+  15.0, 300, 4.5, 16.0, # Car 2
+  25.0, 100, 2.5, 20.0 # Car 3
 ), nrow = 3, ncol = 4, byrow = TRUE)
 colnames(new_data) <- colnames(X)
 
@@ -152,11 +152,12 @@ Use cross-validation for more reliable performance estimates:
 
 ```{r cross-validation}
 result_cv <- bestSubset(X, y,
-                        max_variables = 3,
-                        cross_validation = TRUE,
-                        cv_folds = 5,
-                        cv_seed = 123,
-                        metric = "auc")
+  max_variables = 3,
+  cross_validation = TRUE,
+  cv_folds = 5,
+  cv_seed = 123,
+  metric = "auc"
+)
 
 cat("Cross-validated AUC:", round(result_cv$best_model$auc, 3), "\n")
 ```
@@ -206,7 +207,7 @@ result_threads <- bestSubset(X, y, max_variables = 8, n_threads = 4)
 
 - For `max_variables = k` and `p` predictors: evaluates C(p,1) + C(p,2) + ... + C(p,k) models
 - Example: `p = 20, max_variables = 8` evaluates ~264,000 models
-- Recommendation: Keep `max_variables ≤ 10` for reasonable speed
+- Recommendation: Keep `max_variables ≤ 20` for reasonable speed
 
 ## Complete Example
 
@@ -221,12 +222,13 @@ y <- rbinom(20, 1, 0.5)
 
 # 2. Find best subsets with cross-validation
 result <- bestSubset(X, y,
-                     max_variables = 3,
-                     top_n = 3,
-                     metric = "auc",
-                     cross_validation = TRUE,
-                     cv_folds = 5,
-                     cv_seed = 42)
+  max_variables = 3,
+  top_n = 3,
+  metric = "auc",
+  cross_validation = TRUE,
+  cv_folds = 5,
+  cv_seed = 42
+)
 
 # 3. Examine results
 summary(result)
