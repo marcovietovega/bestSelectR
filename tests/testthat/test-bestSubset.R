@@ -1039,10 +1039,12 @@ test_that("AIC and BIC metrics produce different model rankings", {
   expect_true(is.finite(result_bic$best_model$aic))
   expect_true(is.finite(result_bic$best_model$bic))
 
-  # Other models (rank 2+) should only have selected metric
+  # All top_n models should have all metrics calculated
   if (nrow(result_aic$models) > 1) {
-    expect_true(all(is.na(result_aic$models$bic[-1])))
-    expect_true(all(is.na(result_bic$models$aic[-1])))
+    expect_true(all(is.finite(result_aic$models$aic)))
+    expect_true(all(is.finite(result_aic$models$bic)))
+    expect_true(all(is.finite(result_bic$models$aic)))
+    expect_true(all(is.finite(result_bic$models$bic)))
   }
 })
 
@@ -1079,11 +1081,11 @@ test_that("AIC/BIC work with repeated CV", {
   expect_true(all(result_bic$models$bic > 0))
 })
 
-test_that("Best model has all metrics, other models have only selected metric", {
+test_that("All top_n models have all metrics calculated", {
   data <- create_test_data(n = 30, p = 3)
 
-  # When using AUC metric, only AUC calculated during search (optimization)
-  # But best model gets all metrics calculated at the end
+  # When using any metric, only selected metric calculated during search
+  # But all top_n models get all metrics calculated at the end
   result <- bestSubset(
     data$X,
     data$y,
@@ -1108,11 +1110,12 @@ test_that("Best model has all metrics, other models have only selected metric", 
   expect_true(is.finite(result$best_model$accuracy))
   expect_true(is.finite(result$best_model$auc))
 
-  # Other models (rank 2+) should have NA for non-selected metrics
+  # All top_n models should have all metrics calculated
   if (nrow(result$models) > 1) {
-    expect_true(all(is.na(result$models$aic[-1])))
-    expect_true(all(is.na(result$models$bic[-1])))
-    expect_true(all(is.na(result$models$accuracy[-1])))
+    expect_true(all(is.finite(result$models$aic)))
+    expect_true(all(is.finite(result$models$bic)))
+    expect_true(all(is.finite(result$models$accuracy)))
+    expect_true(all(is.finite(result$models$auc)))
   }
 })
 
